@@ -75,10 +75,16 @@ def main():
     parser.add_argument("--max_input_length", default = 128, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
     parser.add_argument("--decay_sampling", action="store_true", help="Whether to sample examples using decay distribution.")
     parser.add_argument("--feature_dimension", type=str, default=728, help="Dimension of input features (of tf-idf) for classifier.")
+    parser.add_argument("--keep_stop_words", action="store_true", help="Whether to keep stop words instead of removing them")
 
     args = parser.parse_args()
 
-    output_path = '_'.join(["./models_tfidf", args.model, str(args.max_input_length)])
+    if args.keep_stop_words:
+        indice_stop_words = "sw"
+    else:
+        indice_stop_words = ""
+
+    output_path = '_'.join(["./models_tfidf", args.model, str(args.max_input_length), indice_stop_words])
     output_path = Path(output_path)
 
     if not output_path.exists():
@@ -135,7 +141,9 @@ def main():
     # if decay_sampling:
 
     def tokenize_and_stem(text, lang=args.lang, stemmer=stemmer):
-        tokens = [word for sent in sent_tokenize(text, language=language[lang]) for word in word_tokenize(sent, language=language[lang])][:args.max_input_length]
+        tokens = [word for sent in sent_tokenize(text, language=language[lang]) for word in word_tokenize(sent, language=language[lang])]
+        if args.max_input_length > 0:
+            tokens = tokens[:args.max_input_length]
         #keep only words but not numbers or other symbols
         #filtered_tokens = []
         #for token in tokens:
@@ -143,7 +151,10 @@ def main():
         #        filtered_tokens.append(token)
 
         #exclude stopwords from stemmed words
-        stems = [stemmer.stem(t) for t in tokens if t not in stop_words]
+        if args.keep_stop_words:
+            stems = [stemmer.stem(t) for t in tokens]
+        else:
+            stems = [stemmer.stem(t) for t in tokens if t not in stop_words]
         return ' '.join(stems)
 
     if args.do_train: 
