@@ -74,53 +74,64 @@ def main():
     parser.add_argument("--split_by_year", default=2017, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
     parser.add_argument("--max_input_length", default = 128, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
     parser.add_argument("--decay_sampling", action="store_true", help="Whether to sample examples using decay distribution.")
-    parser.add_argument("--feature_dimension", type=str, default=728, help="Dimension of input features (of tf-idf) for classifier.")
+    parser.add_argument("--feature_dimension", type=int, default=728, help="Dimension of input features (of tf-idf) for classifier.")
     parser.add_argument("--keep_stop_words", action="store_true", help="Whether to keep stop words instead of removing them")
+    parser.add_argument("--do_lemma", default=True, type=lambda x: (str(x).lower() == 'true'), help="Whether to do lemmatization.")
+    parser.add_argument("--max_iter", default=100, type=int, help="Max number of iterations for optimisation of classifier. (Especially for Logistic Regression)")
+
 
     args = parser.parse_args()
 
     if args.keep_stop_words:
         indice_stop_words = "sw"
     else:
-        indice_stop_words = ""
-
-    output_path = '_'.join(["./models_tfidf", args.model, str(args.max_input_length), indice_stop_words])
+        indice_stop_words = "nosw"
+    if args.do_lemma:
+        indice_do_lemma = "lem"
+    else:
+        indice_do_lemma = "nolem"
+    output_path = '_'.join(["./models_tfidf", args.model, str(args.max_input_length), str(args.feature_dimension), indice_stop_words, indice_do_lemma, str(args.max_iter)])
     output_path = Path(output_path)
 
     if not output_path.exists():
-        output_path.mkdir(parents=True)
-        print(f"Created output directory {output_path}")
+        try:
+            output_path.mkdir(parents=True)
+            print(f"Created output directory {output_path}")
+        except FileExistsError:
+            print(f"{output_path} already exists!")
+            
 
     print("***** Creating stop words list *****")
     stemmer = SnowballStemmer(language[args.lang])
 
-    global stop_words
-    stop_words = []
-    if args.lang == 'fr':
-        # source1: https://github.com/stopwords-iso/stopwords-fr
-        with open(args.fr_stop_words_file,'r') as in_f:
-            lines = in_f.read().splitlines()
-        stop_words += lines
-        # source2: nltk
-        from nltk.corpus import stopwords
-        stop_words += stopwords.words('french')
-        # source3: spacy 
-        from spacy.lang.fr.stop_words import STOP_WORDS as fr_stop
-        stop_words += list(fr_stop)
-        stop_words = list(set(stop_words))
-    elif args.lang == 'en':
-        # source1: https://countwordsfree.com/stopwords
-        with open(args.en_stop_words_file,'r') as in_f:
-            lines = in_f.read().splitlines()
-        stop_words += lines
-        # source2: nltk
-        from nltk.corpus import stopwords
-        stop_words += stopwords.words('english')
-        # source3: spacy 
-        from spacy.lang.fr.stop_words import STOP_WORDS as en_stop
-        stop_words += list(en_stop)
-        stop_words = list(set(stop_words))
-    print(' Done! Number of stop words: ', len(stop_words))
+    if not args.keep_stop_words:
+        global stop_words
+        stop_words = []
+        if args.lang == 'fr':
+            # source1: https://github.com/stopwords-iso/stopwords-fr
+            with open(args.fr_stop_words_file,'r') as in_f:
+                lines = in_f.read().splitlines()
+            stop_words += lines
+            # source2: nltk
+            from nltk.corpus import stopwords
+            stop_words += stopwords.words('french')
+            # source3: spacy 
+            from spacy.lang.fr.stop_words import STOP_WORDS as fr_stop
+            stop_words += list(fr_stop)
+            stop_words = list(set(stop_words))
+        elif args.lang == 'en':
+            # source1: https://countwordsfree.com/stopwords
+            with open(args.en_stop_words_file,'r') as in_f:
+                lines = in_f.read().splitlines()
+            stop_words += lines
+            # source2: nltk
+            from nltk.corpus import stopwords
+            stop_words += stopwords.words('english')
+            # source3: spacy 
+            from spacy.lang.fr.stop_words import STOP_WORDS as en_stop
+            stop_words += list(en_stop)
+            stop_words = list(set(stop_words))
+        print(' Done! Number of stop words: ', len(stop_words))
 
     print("***** Creating training and testing data *****")
     ### READ DATA
@@ -149,6 +160,10 @@ def main():
         #for token in tokens:
         #    if re.search('[a-zA-Z]', token):
         #        filtered_tokens.append(token)
+
+        #return tokens if don't do lemmatisation
+        if not args.do_lemma:
+            return ' '.join(tokens)
 
         #exclude stopwords from stemmed words
         if args.keep_stop_words:
@@ -187,7 +202,7 @@ def main():
         elif args.model == "NB":
             classifier = OneVsRestClassifier(MultinomialNB(fit_prior=True, class_prior=None))
         elif args.model == "LR":
-            classifier = OneVsRestClassifier(LogisticRegression(solver='sag', random_state=24), n_jobs=1)
+            classifier = OneVsRestClassifier(LogisticRegression(solver='sag', random_state=24, max_iter = args.max_iter), n_jobs=1)
 
         # fit model
         pipeline = Pipeline(steps=[
