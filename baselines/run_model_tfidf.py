@@ -47,6 +47,21 @@ def recall(actual, predicted, k):
     else:
         result = len(act_set & pred_set) / float(len(act_set))
     return result
+
+def eval(predictions, labels, k=1):
+    """
+    Return precision and recall modeled after fasttext's test
+    """
+    precision = 0.0
+    nexamples = 0
+    nlabels = 0
+    for prediction, labels in zip(predictions, labels):
+        for p in prediction:
+            if p in labels:
+                precision += 1
+        nexamples += 1
+        nlabels += len(labels)
+    return (precision / (k * nexamples), precision / nlabels)
     
 global language 
 language = {'fr': 'french', 'en':'english'}
@@ -135,7 +150,7 @@ def main():
 
     print("***** Creating training and testing data *****")
     ### READ DATA
-    df = pd.read_csv(args.in_file, dtype=str)
+    df = pd.read_csv(args.in_file, dtype=str).dropna()
     dict_target_secs = {'title': 'title',
                         'abstract': 'abs',
                         'claims': 'claims',
@@ -174,13 +189,13 @@ def main():
 
     if args.do_train: 
         df_train = df[df['date'].apply(lambda x: int(x[:4]) < year and int(x[:4])>=2000)]
-        df_train = df_train[['text', label]].dropna()
+        df_train = df_train[['text', label]]#.dropna()
         df_train = df_train.sample(frac=1, random_state=666).reset_index(drop=True)
         X_train = df_train['text'].apply(tokenize_and_stem).values
         y_train = [label.split(',') for label in df_train[label].values]
 
         df_test = df[df['date'].apply(lambda x: int(x[:4]) >= year)]
-        df_test = df_test[['text', label]].dropna()
+        df_test = df_test[['text', label]]#.dropna()
         df_test = df_test.sample(frac=1, random_state=666).reset_index(drop=True)
         X_test = df_test['text'].apply(tokenize_and_stem).values
         y_test = [label.split(',') for label in df_test[label].values]
@@ -242,9 +257,7 @@ def main():
 
         for i in tqdm(range(len(y_test))):
             true = y_test[i] 
-            print(true)
             pred = [x for _,x in sorted(zip(y_test_pred[i], class_list), reverse=True)][:K]
-            print(pred)
             predictions.append(pred)
 
             pre = precision(true, pred, K)
@@ -258,7 +271,6 @@ def main():
             precisions.append(pre)
             recalls.append(rec)
             f1_at_ks.append(f1_at_k)
-            # print(predictions)
 
         res_df = pd.DataFrame({'true_labels': y_test, 
                                'predict_labels': predictions, 
@@ -267,9 +279,13 @@ def main():
                                'F1_at_k': f1_at_ks})
 
         res_df.to_csv(os.path.join(output_path, f'SVC-{secs_name}-{args.split_by_year}-{args.pred_level}.res'), index=False)
-
         print(res_df)
-        print('Precision: ', res_df['precision'].mean(), 'Recall: ', res_df['recall'].mean(), 'F1 at k: ', res_df['F1_at_k'].mean())
+        
+        eval_micro = eval(predictions, y_test, k=K)
+        precision_micro = eval_micro[0]
+        recall_micro = eval_micro[1]
+        f1atk_micro = 2 * precision_micro * recall_micro / (precision_micro + recall_micro)
+        print('Precision: ', precision_micro, 'Recall: ', recall_micro, 'F1 at k: ', f1atk_micro)
 
 if __name__ == "__main__":
     main()

@@ -69,13 +69,15 @@ def main():
             except FileExistsError:
                 print(f"{output_path} already exists!")
                 
-
         # Import dataset
-        df = pd.read_csv(args.in_file, dtype=object)
+        df = pd.read_csv(args.in_file, dtype=object).dropna()
         for sec in target_sections:
             df[sec] = df[sec].apply(str)
 
         df['text'] = df[target_sections].apply('. '.join, axis=1)
+        if args.max_input_length > 0:
+            df['text'] = df['text'].apply(lambda x: ' '.join(x.split(' ')[:args.max_input_length]))
+
         if args.remove_stop_words:
             global stop_words
             stop_words = []
@@ -111,18 +113,16 @@ def main():
                 #exclude stopwords from stemmed words
                 stems = [t for t in tokens if t not in stop_words]
                 return ' '.join(stems)
-
-
             df['text'] = df['text'].apply(rm_sw)
         
         label = 'IPC' + str(args.pred_level)
         df[label] = df[label].apply(lambda x: ' '.join(['__label__' + l for l in x.split(',')]))
         
         df_train = df[df['date'].apply(lambda x: int(x[:4]) < year and int(x[:4])>=2000)]
-        df_train = df_train[[label, 'text']].dropna()
+        df_train = df_train[[label, 'text']]#.dropna()
 
         df_test = df[df['date'].apply(lambda x: int(x[:4]) >= year)]
-        df_test = df_test[[label, 'text']].dropna() 
+        df_test = df_test[[label, 'text']]#.dropna() 
 
         with open(train_path, 'w') as in_f1:
             in_f1.write('\n'.join(df_train[label] + ' ' + df_train['text']))
