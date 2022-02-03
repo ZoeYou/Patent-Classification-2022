@@ -92,11 +92,11 @@ def main():
     if target == ['abstract']:
         files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[1] == '1' and lang in str(f)]
     elif target == ['description']:
-        files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[2] == '1']
+        files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[2] == '1' and lang in str(f)]
     elif target == ['claims']:
-        files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[3] == '1']
+        files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[3] == '1' and lang in str(f)]
     elif target == ['title','abstract'] or target == ['abstract', 'title']:
-        files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[:2] in ['11', '01'] or (str(f).split('_')[-1].strip('.txt')[0] == '1')]
+        files_list = [f for f in files_list if (str(f).split('_')[-1].strip('.txt')[:2] in ['11', '01'] or (str(f).split('_')[-1].strip('.txt')[0] == '1')) and lang in str(f)]
     else:
         raise ValueError('Unexpected target section or combination of sections!')
     random.shuffle(files_list)
@@ -149,8 +149,8 @@ def main():
                     
                 with abs_file.open('r') as in_f2:
                     try:
-                        text = dict_kv['TITLE'] + ' ' + in_f2.read().strip().split(' ::: ')[1]
-                    except KeyError:
+                        text = dict_kv['TITLE'] + ' .' + in_f2.read().strip().split(' ::: ')[1]
+                    except KeyError:    # if no title then just abstract
                         text = in_f2.read().strip().split(' ::: ')[1]
 
                     if len(text) > 10:
