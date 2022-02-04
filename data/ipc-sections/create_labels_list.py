@@ -2,6 +2,7 @@ from pathlib import Path
 
 # enter your level of IPC/CPC here
 level = 8
+DIR = './20190101'
 
 def get_list(in_dir = './'):
     input_path = Path(in_dir)
@@ -21,7 +22,7 @@ def remove_replicates(labells, titlels):
     return res_labels, res_titles
 
 
-files_list = get_list()
+files_list = get_list(in_dir = DIR)
 labels_list = []
 titles_list = []
 
@@ -48,7 +49,7 @@ print(labels_list)
 print(len(labels_list))
 print(len(set(labels_list)))
 
-with open(f'labels_group_id_{level}.tsv', 'w') as out_f:
+with open(f'{DIR}/labels_group_id_{level}.tsv', 'w') as out_f:
     out_f.write('id\ttitle\n')
 
     for l, t in zip(labels_list, titles_list):
