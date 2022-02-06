@@ -6,6 +6,7 @@ import pandas as pd
 from wasabi import msg
 from tqdm import tqdm
 from pathlib import Path
+from collections import defaultdict
 
 
 def main():
@@ -56,7 +57,23 @@ def main():
                         default=-1,
                         help="The maximum number of datasets in training set.")
 
-                         
+    parser.add_argument("--max_text_length",
+                        type=int,
+                        default=512,
+                        help="Max length for output text. (split by ' ')")
+    
+    parser.add_argument("--add_context_tokens",
+                        action="store_true",
+                        help="Whether to add context special tokens at the beginning of corresponding section. e.g. <abstract>, <claims> (specifically for Bert for Patents)"
+    )
+
+    parser.add_argument("--desc_token",
+                        type=str,
+                        default="<summary>",
+                        choices={"<summary>", "<invention>"},
+                        help="Whether to add context special tokens at the beginning of corresponding section. e.g. <abstract>, <claims> (specifically for Bert for Patents)"
+    )    
+
         
     args = parser.parse_args()
 
@@ -109,12 +126,25 @@ def main():
     dict_sec = {'abstract': 'ABSTR',
                 'title': 'TITLE',
                 'description': 'DESCR',
-                'claims': 'CLAIM1',
-                }
+                'claims': 'CLAIM1'}
+
+    dict_context_tokens = {'ABSTR': '<abstract>',
+                           'CLAIM1': '<claims>',
+                           'DESCR': args.desc_token}    # TODO or invention? need to be test
+                        #    'TITLE': '<title>'   # NOT in vocabularies for Bert of Patents, ADDED BY ZY
+
+    dict_context_tokens = defaultdict(lambda: "", dict_context_tokens)
+
     target_sections = [dict_sec[s] for s in args.target]              
     sections_name = '_'.join(target_sections)
 
     output_dir = f"epo-{lang}-{sections_name}-from-{args.start_year}"
+    if args.add_context_tokens:
+        context_name = ""
+        for s in target_sections:
+            context_name += dict_context_tokens[s]
+        output_dir = output_dir + '-' + context_name
+        
     os.makedirs(output_path / output_dir, exist_ok=True)
 
     with open(output_path / output_dir / 'train.tsv', 'w', newline='') as out_f1, \
@@ -148,10 +178,17 @@ def main():
                     res_dict = {}
                     
                 with abs_file.open('r') as in_f2:
-                    try:
-                        text = dict_kv['TITLE'] + ' .' + in_f2.read().strip().split(' ::: ')[1]
+                    try:     
+                        if args.add_context_tokens:
+                            text = dict_kv['TITLE'] + '. <abstract> ' + in_f2.read().strip().split(' ::: ')[1]
+                        else:
+                            text = dict_kv['TITLE'] + '. ' + in_f2.read().strip().split(' ::: ')[1]
+
                     except KeyError:    # if no title then just abstract
-                        text = in_f2.read().strip().split(' ::: ')[1]
+                        if args.add_context_tokens:
+                            text = in_f2.read().strip().split(' ::: ')[1]
+                        else:
+                            text = '<abstract> ' + in_f2.read().strip().split(' ::: ')[1]
 
                     if len(text) > 10:
                         res_dict['text'] = text 
@@ -186,9 +223,13 @@ def main():
                 dict_kv = dict(zip(keys, vals))
                 res_dict = {}
 
-                text = ' '.join([v for k, v in zip(keys, vals) if k in target_sections]).strip()
+                if args.add_context_tokens:
+                    text = '. '.join([dict_context_tokens[k] + v for k, v in zip(keys, vals) if k in target_sections]).strip()
+                else:
+                    text = '. '.join([v for k, v in zip(keys, vals) if k in target_sections]).strip()
+
                 if len(text) > 10:
-                    res_dict['text'] = text 
+                    res_dict['text'] = ' '.join(text.split(' ')[:args.max_text_length])
                 else:
                     continue
                 res_dict['id'] = str(pat_file).split('_')[-3].strip()
