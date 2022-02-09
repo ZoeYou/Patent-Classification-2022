@@ -1,3 +1,4 @@
+import os
 from os import lseek
 import sys
 import torch
@@ -9,15 +10,33 @@ import logging
 
 DATA_PATH = sys.argv[1]
 LABEL_PATH = sys.argv[2]
-MAX_LEN = 128
-TRAIN_BATCH_SIZE = 32
-OUTPUT_DIR = DATA_PATH
+MAX_LEN = int(sys.argv[3]) # 128
+n_epochs = int(sys.argv[4]) #3
+TRAIN_BATCH_SIZE = int(sys.argv[5]) #32
+model_name = sys.argv[6] #"camembert/camembert-large"
+try:
+    model_path = sys.argv[7]
+except:
+    model_path = model_name
+
+
+if "large" in model_name:
+    indice_model_name = 'wiki'
+else:
+    indice_model_name = 'base'
+
+OUTPUT_DIR = '_'.join([DATA_PATH, indice_model_name, str(MAX_LEN), str(n_epochs), str(TRAIN_BATCH_SIZE)])
+try:
+    os.makedirs(OUTPUT_DIR)
+except FileExistsError:
+    pass
+
 
 with open(LABEL_PATH + '/labels.csv', 'r') as in_f:
     cols_label = in_f.read().splitlines()
 
 databunch = BertDataBunch(DATA_PATH, LABEL_PATH,    
-                          tokenizer='camembert-base',
+                          tokenizer=model_name,
                           train_file='train.csv',
                           val_file='test.csv',
                           label_file='labels.csv',
@@ -27,16 +46,18 @@ databunch = BertDataBunch(DATA_PATH, LABEL_PATH,
                           max_seq_length=MAX_LEN,
                           multi_gpu=True,
                           multi_label=True,
-                          model_type='camembert-base')
-
+                          model_type=model_name)
 
 logger = logging.getLogger()
 device_cuda = torch.device("cuda")
 metrics = [{'name': 'accuracy', 'function': accuracy}]
 
+if model_path != model_name:
+    model_name = model_path
+
 learner = BertLearner.from_pretrained_model(
 						databunch,
-						pretrained_path='camembert-base',
+						pretrained_path=model_name,
 						metrics=metrics,
 						device=device_cuda,
 						logger=logger,
@@ -45,10 +66,10 @@ learner = BertLearner.from_pretrained_model(
 						warmup_steps=500,
 						multi_gpu=True,
 						is_fp16=True,
-						multi_label=False,
+						multi_label=True,
 						logging_steps=50)
 
-learner.fit(epochs=3,
+learner.fit(epochs=n_epochs,
 			lr=5e-5,
 			validate=True, 	# Evaluate the model after each epoch
 			schedule_type="warmup_cosine",

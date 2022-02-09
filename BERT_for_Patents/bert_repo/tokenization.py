@@ -164,7 +164,7 @@ class FullTokenizer(object):
   def __init__(self, vocab_file, do_lower_case=True):
     self.vocab = load_vocab(vocab_file)
     self.inv_vocab = {v: k for k, v in self.vocab.items()}
-    self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
+    self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case, vocab=self.vocab) #vocab ADDED BY ZY
     self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab)
 
   def tokenize(self, text):
@@ -185,13 +185,14 @@ class FullTokenizer(object):
 class BasicTokenizer(object):
   """Runs basic tokenization (punctuation splitting, lower casing, etc.)."""
 
-  def __init__(self, do_lower_case=True):
+  def __init__(self, do_lower_case=True, vocab=None):
     """Constructs a BasicTokenizer.
 
     Args:
       do_lower_case: Whether to lower case the input.
     """
     self.do_lower_case = do_lower_case
+    self.vocab = vocab # ADDED BY ZY
 
   def tokenize(self, text):
     """Tokenizes a piece of text."""
@@ -230,6 +231,11 @@ class BasicTokenizer(object):
 
   def _run_split_on_punc(self, text):
     """Splits punctuation on a piece of text."""
+    ### ADDED BY ZY FOR ADDING SPECIAL TOKENS FOR BERT FOR PATENTS 07/01/2022 ###
+    if text in self.vocab:
+        return [text]
+    #############################################################################
+
     chars = list(text)
     i = 0
     start_new_word = True
@@ -302,6 +308,7 @@ class WordpieceTokenizer(object):
 
   def __init__(self, vocab, unk_token="[UNK]", max_input_chars_per_word=200):
     self.vocab = vocab
+
     self.unk_token = unk_token
     self.max_input_chars_per_word = max_input_chars_per_word
 
@@ -324,8 +331,8 @@ class WordpieceTokenizer(object):
     """
 
     text = convert_to_unicode(text)
-
     output_tokens = []
+
     for token in whitespace_tokenize(text):
       chars = list(token)
       if len(chars) > self.max_input_chars_per_word:

@@ -3,11 +3,14 @@ import pandas as pd
 from tqdm import tqdm
 import sys
 
-OUTPUT_DIR = sys.argv[1]
+OUTPUT_DIR = sys.argv[1]    # model directory
+DATA_DIR = sys.argv[2]  # data directory
+K = 1 #int(sys.argv[3])
 LABEL_PATH = './'
 MODEL_PATH = OUTPUT_DIR +'/model_out'
-test_file = OUTPUT_DIR + '/test.csv'
-K = int(sys.argv[2])
+test_file = DATA_DIR + '/test.csv'
+cross_test = True
+IPC_level = 4
 
 
 def precision(actual, predicted, k):
@@ -38,6 +41,23 @@ def recall(actual, predicted, k):
         result = len(act_set & pred_set) / float(len(act_set))
     return result
 
+def eval(predictions, labels, k=1):
+    """
+    Return precision and recall modeled after fasttext's test
+    """
+    precision = 0.0
+    nexamples = 0
+    nlabels = 0
+    for prediction, labels in zip(predictions, labels):
+        for p in prediction:
+            if p in labels:
+                precision += 1
+        nexamples += 1
+        nlabels += len(labels)
+    return (precision / (k * nexamples), precision / nlabels)
+
+
+
 predictor = BertClassificationPredictor(
 				model_path=MODEL_PATH,
 				label_path=LABEL_PATH, # location for labels.csv file
@@ -50,26 +70,21 @@ predictor = BertClassificationPredictor(
 df_test = pd.read_csv(test_file)
 text_list = df_test['text'].to_list()
 
-if 'epo' in OUTPUT_DIR:
-    import csv
-    from collections import OrderedDict
-    csv.field_size_limit(sys.maxsize)
+global cols
+cols = list(df_test.columns[:-1])
 
-    file_name = '../data/EPO/epo_data/epo_fr_CLAIM1_from_2015/test.tsv' # TODO
-    true_labels = []
-    with open(file_name, newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in tqdm(reader):
-            true_labels.append(row['group_ids'])
-    true_labels = [list(OrderedDict.fromkeys([label[:4] for label in l.split(',')])) for l in true_labels]
-else:
-    # read labels from original data file
-    test_df0 = pd.read_csv('orig_test.csv')
-    true_labels = [l.split(',') for l in test_df0['IPC'+OUTPUT_DIR.strip('/ ').split('_')[-1]].to_list()]
-    print(len(true_labels))
+def get_labels(line):
+    res = []
 
-multilabel_predictions = predictor.predict_batch(text_list)
-predictions = [[l[0] for l in line[:10]] for line in multilabel_predictions]
+    for l in cols:
+        if line[l] == 1:
+            res.append(l)
+    return res
+true_labels = df_test.apply(get_labels, axis=1).to_list()
+
+
+multilabel_predictions = predictor.predict_batch(text_list) # !!!!!!PROBLEM!!!!!!?????
+predictions = [[l[0] for l in line[:K]] for line in multilabel_predictions]
 print(len(predictions))
 
 precisions = []
@@ -95,6 +110,13 @@ for i in tqdm(range(len(predictions))):
 res_df = pd.DataFrame({'true_labels': true_labels, 'predict_labels': predictions, 'precision': precisions, 'recall': recalls, 'F1_at_k': f1_at_ks})
 print(res_df)
 
-print('Precision: ', res_df['precision'].mean(), 'Recall: ', res_df['recall'].mean(), 'F1 at k: ', res_df['F1_at_k'].mean())
+eval_micro = eval(predictions, true_labels, k=K)
+precision_micro = eval_micro[0]
+recall_micro = eval_micro[1]
+f1atk_micro = 2 * precision_micro * recall_micro / (precision_micro + recall_micro)
+print('Precision: ', precision_micro, 'Recall: ', recall_micro, 'F1 at k: ', f1atk_micro)
+
+#example-based metric
+#print('Precision: ', res_df['precision'].mean(), 'Recall: ', res_df['recall'].mean(), 'F1 at k: ', res_df['F1_at_k'].mean())
 
 

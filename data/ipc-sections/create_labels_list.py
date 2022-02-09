@@ -2,7 +2,7 @@ from pathlib import Path
 
 # enter your level of IPC/CPC here
 level = 8
-DIR = './20190101'
+DIR = './20170101'
 
 def get_list(in_dir = './'):
     input_path = Path(in_dir)

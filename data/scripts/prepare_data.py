@@ -46,6 +46,7 @@ def main():
     parser.add_argument("--target", 
                         type=str,
                         action="append",
+                        choices={"title","abstract","description","claims"},
                         help="The target section(s) of patent corpus.")
 
     parser.add_argument("--pubid_ipcs_file",
@@ -64,14 +65,14 @@ def main():
     
     parser.add_argument("--add_context_tokens",
                         action="store_true",
-                        help="Whether to add context special tokens at the beginning of corresponding section. e.g. <abstract>, <claims> (specifically for Bert for Patents)"
+                        help="Whether to add context special tokens at the beginning of corresponding section. e.g. [abstract], [claims] (specifically for Bert for Patents)"
     )
 
     parser.add_argument("--desc_token",
                         type=str,
-                        default="<summary>",
-                        choices={"<summary>", "<invention>"},
-                        help="Whether to add context special tokens at the beginning of corresponding section. e.g. <abstract>, <claims> (specifically for Bert for Patents)"
+                        default="[summary]",
+                        choices={"[summary]", "[invention]"},
+                        help="Whether to add context special tokens at the beginning of corresponding section. e.g. [abstract], [claims] (specifically for Bert for Patents)"
     )    
 
         
@@ -96,7 +97,7 @@ def main():
         dir = os.path.join(args.input_dir,'epo_fr')
     elif lang == 'de':
         dir = os.path.join(args.input_dir,'epo_de')
-    target_years = [str(y) for y in range(args.start_year, args.end_year)]
+    target_years = [str(y) for y in range(args.start_year, args.end_year+1)]
 
     input_dir = Path(dir)
     for y in target_years:  
@@ -128,17 +129,17 @@ def main():
                 'description': 'DESCR',
                 'claims': 'CLAIM1'}
 
-    dict_context_tokens = {'ABSTR': '<abstract>',
-                           'CLAIM1': '<claims>',
+    dict_context_tokens = {'ABSTR': '[abstract]',
+                           'CLAIM1': '[claim]',
                            'DESCR': args.desc_token}    # TODO or invention? need to be test
-                        #    'TITLE': '<title>'   # NOT in vocabularies for Bert of Patents, ADDED BY ZY
+                        #    'TITLE': '[title]'   # NOT in vocabularies for Bert of Patents, ADDED BY ZY
 
     dict_context_tokens = defaultdict(lambda: "", dict_context_tokens)
 
     target_sections = [dict_sec[s] for s in args.target]              
     sections_name = '_'.join(target_sections)
 
-    output_dir = f"epo-{lang}-{sections_name}-from-{args.start_year}"
+    output_dir = f"epo-{lang}-{sections_name}-from-{args.start_year}to{args.end_year}"
     if args.add_context_tokens:
         context_name = ""
         for s in target_sections:
@@ -180,7 +181,7 @@ def main():
                 with abs_file.open('r') as in_f2:
                     try:     
                         if args.add_context_tokens:
-                            text = dict_kv['TITLE'] + '. <abstract> ' + in_f2.read().strip().split(' ::: ')[1]
+                            text = dict_kv['TITLE'] + '. [abstract] ' + in_f2.read().strip().split(' ::: ')[1]
                         else:
                             text = dict_kv['TITLE'] + '. ' + in_f2.read().strip().split(' ::: ')[1]
 
@@ -188,7 +189,7 @@ def main():
                         if args.add_context_tokens:
                             text = in_f2.read().strip().split(' ::: ')[1]
                         else:
-                            text = '<abstract> ' + in_f2.read().strip().split(' ::: ')[1]
+                            text = '[abstract] ' + in_f2.read().strip().split(' ::: ')[1]
 
                     if len(text) > 10:
                         res_dict['text'] = text 
@@ -198,11 +199,9 @@ def main():
                 res_dict['id'] = str(title_file).split('_')[-3].strip()
                 res_dict['group_ids'] = dict_pubid_ipcs[res_dict['id']].strip()
 
-                try:
-                    res_dict['date'] = dict_kv['DATE'].strip()
-                except KeyError:
-                    year_of_f = str(title_file).split('_')[-4]
-                    res_dict['date'] = f'{year_of_f}-01-01'
+                year_of_f = str(title_file).split('_')[-4]
+                res_dict['date'] = f'{year_of_f}-01-01'
+
                 if int(res_dict['date'][:4]) >= args.split_year:
                     writer2.writerow(res_dict)
                 else:
@@ -224,7 +223,7 @@ def main():
                 res_dict = {}
 
                 if args.add_context_tokens:
-                    text = '. '.join([dict_context_tokens[k] + v for k, v in zip(keys, vals) if k in target_sections]).strip()
+                    text = '. '.join([dict_context_tokens[k] + ' ' + v for k, v in zip(keys, vals) if k in target_sections]).strip()
                 else:
                     text = '. '.join([v for k, v in zip(keys, vals) if k in target_sections]).strip()
 
@@ -234,11 +233,9 @@ def main():
                     continue
                 res_dict['id'] = str(pat_file).split('_')[-3].strip()
                 res_dict['group_ids'] = dict_pubid_ipcs[res_dict['id']].strip()
-                try:
-                    res_dict['date'] = dict_kv['DATE'].strip()
-                except KeyError:
-                    year_of_f = str(pat_file).split('_')[-4]
-                    res_dict['date'] = f'{year_of_f}-01-01'
+
+                year_of_f = str(pat_file).split('_')[-4]
+                res_dict['date'] = f'{year_of_f}-01-01'
 
                 if int(res_dict['date'][:4]) >= args.split_year:
                     writer2.writerow(res_dict)

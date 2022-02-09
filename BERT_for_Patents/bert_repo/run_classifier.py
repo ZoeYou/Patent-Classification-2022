@@ -149,8 +149,7 @@ flags.DEFINE_integer("number_of_predictions", -1, 'how many predictions to run')
 flags.DEFINE_string("label_file", None, 'label file') 
 flags.DEFINE_bool("save_pred_result", True, "save predicton result")
 flags.DEFINE_integer("IPC_level", 4, "prediction level of IPC (number of alphabet + digits)")
-#############################################################
-
+############################################################
 
 
 class InputExample(object):
