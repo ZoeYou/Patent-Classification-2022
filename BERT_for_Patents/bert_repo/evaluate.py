@@ -1,7 +1,5 @@
 import pandas as pd
-import sys
-import csv
-import json
+import sys, csv, json
 from collections import OrderedDict
 from tqdm import tqdm
 from operator import itemgetter
@@ -9,6 +7,9 @@ from operator import itemgetter
 csv.field_size_limit(sys.maxsize)
 
 def precision(actual, predicted, k):
+    """
+    example-based precision (for one example)
+    """
     act_set = set(actual)
 
     if len(predicted) < k:
@@ -23,6 +24,9 @@ def precision(actual, predicted, k):
     return result
 
 def recall(actual, predicted, k):
+    """
+    example-based recall (for one example)
+    """
     act_set = set(actual)
 
     if len(predicted) < k:
@@ -36,8 +40,22 @@ def recall(actual, predicted, k):
         result = len(act_set & pred_set) / float(len(act_set))
     return result
 
+def eval(predictions, labels, k):
+    """
+    label-based micro percision and recall (for all examples)
+    """
+    precision = 0.0
+    nexamples = 0
+    nlabels = 0
+    for prediction, labels in zip(predictions, labels):
+        for p in prediction:
+            if p in labels:
+                precision += 1
+        nexamples += 1
+        nlabels += len(labels)
+    return (precision / (k * nexamples), precision / nlabels)
+
 def get_labels(label_file=None):
-    import csv
     """See base class."""
     lst = []
     #TODO
@@ -57,9 +75,8 @@ def get_labels(label_file=None):
 
         f.close() 
         return lst[1:]
-
     else:
-        lst = [ chr(i) for i in range(ord('A'), ord('H')+1) ]
+        lst = [chr(i) for i in range(ord('A'), ord('H')+1) ]
         return lst
 
 
@@ -67,27 +84,24 @@ def get_labels(label_file=None):
 
 TEST_FILE = sys.argv[1]  #'content/PatentBERT/test_data.tsv'
 PRED_FILE = sys.argv[2]  #'results/predict_result.txt'
-K = int(sys.argv[3]) # 5
-label_file = "labels_group_id_4.tsv"
-threshold = 0
-level_ipc = 4
+label_file = sys.argv[3] #../../data/ipc-sections/20210101/labels_group_id_4.tsv
+K = int(sys.argv[4]) # 5
+level_ipc = int(label_file[-5])
 
 
-"""
-df = pd.read_csv(TEST_FILE, sep='\t')
-df = df[df['group_ids'].apply(lambda x: True if len(str(x)) > 3 else False)]
-"""
-print("Read test file...")
+print("Reading test file...")
+true_labels = []
+
 with open(TEST_FILE, newline='') as csvfile:
     reader = csv.DictReader(csvfile)
-    true_labels = []
-    for row in tqdm(reader):
+        for row in tqdm(reader):
         true_labels.append(row['group_ids'])
 
-
-#true_labels = df['group_ids'].apply(lambda x: str(x)).to_list()
 if level_ipc == 4:
     true_labels = [list(OrderedDict.fromkeys([label[:4] for label in l.split(',')])) for l in true_labels]
+#TODO
+#elif level_ipc == 6:
+#elif level_ipc == 8:
 
 with open(PRED_FILE, 'r') as in_f:
     pred_scores = in_f.read().splitlines()
@@ -99,28 +113,22 @@ with open(PRED_FILE, 'r') as in_f:
         labels = get_labels()
     elif level_ipc == 4:
         labels = get_labels(label_file)
+        print("Using label file: ", label_file)
         print(len(labels))
 
     for line in pred_scores:
-        #if line == ['']:
-        #    predictions.append(line)
-
-        dict_tmp = dict(zip(labels, line))
-            
-        #print(dict_tmp)
-        #print(sum([v for k, v in dict_tmp.items()]))
+        dict_tmp = dict(zip(labels, line))            
         dict_sorted = {k: v for k,v in sorted(dict_tmp.items(), reverse=True, key=itemgetter(1))}
-        #{k: v for k, v in sorted(dict_tmp.items(), reverse=True, key=lambda item: item[1])} # if v >= threshold}
         predictions.append(list(dict_sorted.keys()))
+
+
+assert len(true_labels) == len(predictions)
 
 precisions = []
 recalls = []
 f1_at_ks = []
 
-
-print(len(true_labels))
-print(len(predictions))
-
+# example-based metrics calculation
 for i in tqdm(range(len(predictions))):
     true = [str(l) for l in true_labels[i]]
     pred = [str(l) for l in predictions[i]]
@@ -140,7 +148,12 @@ for i in tqdm(range(len(predictions))):
 res_df = pd.DataFrame({'true_labels': true_labels, 'predict_labels': predictions, 'precision': precisions, 'recall': recalls, 'F1_at_k': f1_at_ks})
 print(res_df)
 
-file_name = PRED_FILE.split('/')[0]
+# save prediction results
+file_name = PRED_FILE.split('/')[-2]
 res_df.to_csv(f'res_eval/{file_name}_res.csv', index=False)
 
-print('Precision: ', res_df['precision'].mean(), 'Recall: ', res_df['recall'].mean(), 'F1 at k: ', res_df['F1_at_k'].mean())
+# label-based metrics calculation
+eval_micro = eval(predictions, true_labels, k=K)
+precision_micro, recall_micro = eval_micro
+f1atk_micro = 2 * precision_micro * recall_micro / (precision_micro + recall_micro)
+print('Precision: ', precision_micro, 'Recall: ', recall_micro, 'F1 at k: ', f1atk_micro)
