@@ -126,7 +126,7 @@ flags.DEFINE_integer(
 
 
 ###################### ADDED BY ZY ########################
-flags.DEFINE_integer("num_classes", 9, "Total number of labels for patent CPC Level 1, A~H & Y")  
+flags.DEFINE_integer("num_classes", 9, "Total number of labels for patent CPC Level 1, A~H")  
 flags.DEFINE_string("cpc_id", None, 'CPC labels') 
 flags.DEFINE_string("prefix", None, 'CPC prefix') 
 flags.DEFINE_integer("times_for_num_train_steps", 1, 'multiply train steps') 
@@ -430,13 +430,13 @@ class PatentMultiLabelProcessor(DataProcessor):
         """See base class."""
         lst = []
         #TODO
-        #cpc_id = 'section_id'      # A~H, Y
+        #cpc_id = 'section_id'      # A~H
         #cpc_id = 'subsection_id'   # A01
         #cpc_id = 'group_id'        # A01B
         #cpc_id = 'subgroup_id'     # C40B40/14
 
         if cpc_id == 'section_id':
-            lst = [ chr(i) for i in range(ord('A'), ord('H')+1) ] + ['Y']
+            lst = [ chr(i) for i in range(ord('A'), ord('H')) ]
             return lst
 
         f = open(FLAGS.label_file)
@@ -1060,7 +1060,7 @@ def save_pred_result(label_list, all_y_lables, all_y_multi_hot_prediction, all_y
 
 
 def show_predict_result_pmlp(label_list, result, num_actual_predict_examples):
-  # label_list: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'Y']
+  # label_list: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
   all_y_lables = []
   all_y_multi_hot_prediction = []
   all_y_probabilities = []
