@@ -224,7 +224,7 @@ class DataProcessor(object):
   def _read_tsv(cls, input_file, quotechar=None):
     """Reads a tab separated value file."""
     with tf.io.gfile.GFile(input_file, "r") as f:
-      if FLAGS.task_name == 'PMLP':
+      if FLAGS.task_name == 'PMLP' and 'uspto' not in (FLAGS.data_dir).lower():
         reader = csv.DictReader(f)
         lines = []
         for line in reader:
