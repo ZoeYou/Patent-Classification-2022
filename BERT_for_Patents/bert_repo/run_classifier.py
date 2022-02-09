@@ -234,6 +234,7 @@ class DataProcessor(object):
         lines = []
         for line in reader:
             lines.append(line)
+        lines = lines[1:]
     return lines
 
 
