@@ -143,7 +143,6 @@ flags.DEFINE_string("test_file", 'test.tsv', 'test file')
 flags.DEFINE_string("dev_tf_record", 'eval.tf_record', 'eval tf record') 
 flags.DEFINE_integer("label_column", 0, 'which column as label') 
 flags.DEFINE_integer("text_column", 3, 'which column as text') 
-flags.DEFINE_bool("skip_header", True, "skip header in files")
 flags.DEFINE_string("label_to_count", None, 'e.g., A,G,AG') 
 flags.DEFINE_integer("number_of_predictions", -1, 'how many predictions to run') 
 flags.DEFINE_string("label_file", None, 'label file') 
@@ -224,7 +223,6 @@ class DataProcessor(object):
   @classmethod
   def _read_tsv(cls, input_file, quotechar=None):
     """Reads a tab separated value file."""
-    #with tf.io.gfile.Open(input_file, "r") as f:'
     with tf.io.gfile.GFile(input_file, "r") as f:
       if FLAGS.task_name == 'PMLP':
         reader = csv.DictReader(f)
@@ -445,15 +443,13 @@ class PatentMultiLabelProcessor(DataProcessor):
         tf.compat.v1.logging.info('Reading label file: %s' % FLAGS.label_file)
         reader = csv.reader(f, delimiter='\t')
         lines = []
-        for i, line in enumerate(reader):
-            if i == 0 and cpc_id != 'ipc':
-                continue
+        for i, line in enumerate(reader): 
             if len(line[0]) == 0:
                 continue
             lst.append(line[0])
 
         f.close() 
-        return lst
+        return lst[1:]
 
     def _create_examples(self, lines, set_type):
         """Creates examples for the training and dev sets."""
@@ -461,10 +457,6 @@ class PatentMultiLabelProcessor(DataProcessor):
 
         tf.compat.v1.logging.info('_create_examples(): begins....')
         for (i, line) in enumerate(lines):
-            ########### skip header##########COMMENTED BY ZY#############
-            #if i == 0 and FLAGS.skip_header == True:
-            #    continue
-
             if FLAGS.number_of_predictions > 0 and i >= FLAGS.number_of_predictions:
                 tf.compat.v1.logging.info('count of predictions (%s)' % i)
                 break  
@@ -491,7 +483,7 @@ class PatentMultiLabelProcessor(DataProcessor):
 
 
 
-def convert_single_example(ex_index, example, label_list, max_seq_length,
+def convert_single_example(ex_index, example, label_list, max_seq_length, 
                            tokenizer):
   """Converts a single `InputExample` into a single `InputFeatures`."""
   if FLAGS.task_name == 'PMLP':
@@ -500,7 +492,7 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
             input_ids=[0] * max_seq_length,
             input_mask=[0] * max_seq_length,
             segment_ids=[0] * max_seq_length,
-            label_id= [0] * 9,
+            label_id= [0] * len(label_list),
             is_real_example=False)
   else: # org
     if isinstance(example, PaddingInputExample):
@@ -584,32 +576,30 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   ##################### ADDED FOR MULTI-LABEL TASK #####################
   label_id = None
 
-  #use taks name to chek
-  #if "," in example.label: # multiple labels
-
   if FLAGS.task_name == 'PMLP':
     # get list of label
     label_id_list = []
     
     if FLAGS.IPC_level == 4:
         example_label_list = list(set([label[:4] for label in example.label.split(',')]))
-    # TODO else
+    # TODO
+    # elif 6,8
 
     for label_ in example_label_list:
         try:
             label_id_list.append(label_map[label_])
-        except KeyError:
+        except KeyError:    # for those labels that have been removed from the label file
             continue
 
     # convert to multi-hot vectors
     label_id = [0 for l in range(len(label_map))]
     for j, label_index in enumerate(label_id_list):
         label_id[label_index] = 1
-  else: # single label
+  else: # single label (org)
     label_id = label_map[example.label]
 
   ###################################################################### 
-  if ex_index < 5:  #TODO ????
+  if ex_index < 5:  #TODO
     tf.compat.v1.logging.info("*** Example ***")
     tf.compat.v1.logging.info("guid: %s" % (example.guid))
     tf.compat.v1.logging.info("tokens: %s" % " ".join(
@@ -622,7 +612,6 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     if FLAGS.task_name == 'PMLP':
         # if label_id is a list, try print multi-hot value: label_id_list
         tf.logging.info("label: %s (id_list = %s)" % (str(example.label), str(label_id_list))) 
-    #tf.compat.v1.logging.info("label: %s (id = %d)" % (example.label, label_id))
     tf.compat.v1.logging.info("label: %s (id = %s)" % (str(example.label), str(label_id))) # %d
     ###############################################################################
 
@@ -851,7 +840,7 @@ def model_fn_builder(bert_config, num_labels, init_checkpoint, learning_rate,
 
     if FLAGS.task_name == 'PMLP':
       (total_loss, per_example_loss, logits, probabilities, multi_hot_prediction, labels) = create_model(
-                            bert_config, is_training, input_ids, input_mask, segment_ids, label_ids, num_labels, use_one_hot_embeddings)#, pos_weight)
+                            bert_config, is_training, input_ids, input_mask, segment_ids, label_ids, num_labels, use_one_hot_embeddings)
     else:
       (total_loss, per_example_loss, logits, probabilities) = create_model(
         bert_config, is_training, input_ids, input_mask, segment_ids, label_ids,
