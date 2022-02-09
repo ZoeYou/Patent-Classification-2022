@@ -436,7 +436,7 @@ class PatentMultiLabelProcessor(DataProcessor):
         #cpc_id = 'subgroup_id'     # C40B40/14
 
         if cpc_id == 'section_id':
-            lst = [ chr(i) for i in range(ord('A'), ord('H')) ]
+            lst = [ chr(i) for i in range(ord('A'), ord('H')+1) ]
             return lst
 
         f = open(FLAGS.label_file)
