@@ -18,6 +18,7 @@ from sklearn import svm
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.pipeline import Pipeline
 from tqdm import tqdm
+import spacy
 
 
 def precision(actual, predicted, k):
@@ -88,10 +89,11 @@ def main():
     parser.add_argument("--K", default=1, type=int, help="Selection of K for the metrics (Precision/Recall @ k).")
     parser.add_argument("--split_by_year", default=2017, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
     parser.add_argument("--max_input_length", default = 128, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
-    parser.add_argument("--decay_sampling", action="store_true", help="Whether to sample examples using decay distribution.")
+    parser.add_argument("--decay_sampling", action="store_true", help="Whether to sample examples using decay distribution.") #TODO
     parser.add_argument("--feature_dimension", type=int, default=728, help="Dimension of input features (of tf-idf) for classifier.")
     parser.add_argument("--keep_stop_words", action="store_true", help="Whether to keep stop words instead of removing them")
-    parser.add_argument("--do_lemma", default=True, type=lambda x: (str(x).lower() == 'true'), help="Whether to do lemmatization.")
+    parser.add_argument("--do_stemmer", default=True, type=lambda x: (str(x).lower() == 'true'), help="Whether to apply a stemmer.")
+    parser.add_argument("--do_lemma", default=False, type=lambda x: (str(x).lower() == 'true'), help="Whether to apply lemmatization.")
     parser.add_argument("--max_iter", default=100, type=int, help="Max number of iterations for optimisation of classifier. (Especially for Logistic Regression)")
 
 
@@ -101,11 +103,19 @@ def main():
         indice_stop_words = "sw"
     else:
         indice_stop_words = "nosw"
+    if args.do_stemmer:
+        indice_do_stemmer = "stm"
+    else:
+        indice_do_stemmer = "nostm"
     if args.do_lemma:
         indice_do_lemma = "lem"
     else:
         indice_do_lemma = "nolem"
-    output_path = '_'.join(["./models_tfidf", args.model, str(args.max_input_length), str(args.feature_dimension), indice_stop_words, indice_do_lemma, str(args.max_iter)])
+
+    # lemmatizer and stemmer can not be used at the same time  
+    assert args.do_lemma != args.do_stemmer
+
+    output_path = '_'.join(["./models_tfidf", args.model, str(args.max_input_length), str(args.feature_dimension), indice_stop_words, indice_do_stemmer, indice_do_lemma, str(args.max_iter)])
     output_path = Path(output_path)
 
     if not output_path.exists():
@@ -117,7 +127,13 @@ def main():
             
 
     print("***** Creating stop words list *****")
-    stemmer = SnowballStemmer(language[args.lang])
+    if args.do_stemmer:
+        global stemmer 
+        stemmer = SnowballStemmer(language[args.lang])
+    if args.do_lemma:
+        global lemmatizer 
+        model_name = f"{args.lang}_core_news_sm"
+        lemmatizer = spacy.load(model_name, disable = ['parser','ner'])
 
     if not args.keep_stop_words:
         global stop_words
@@ -166,7 +182,7 @@ def main():
     # ### Especially for decay sampling TODO
     # if decay_sampling:
 
-    def tokenize_and_stem(text, lang=args.lang, stemmer=stemmer):
+    def tokenize_and_stem(text, lang=args.lang):
         tokens = [word for sent in sent_tokenize(text, language=language[lang]) for word in word_tokenize(sent, language=language[lang])]
         if args.max_input_length > 0:
             tokens = tokens[:args.max_input_length]
@@ -177,15 +193,17 @@ def main():
         #        filtered_tokens.append(token)
 
         #return tokens if don't do lemmatisation
-        if not args.do_lemma:
-            return ' '.join(tokens)
+        if args.do_stemmer:
+            tokens = [stemmer.stem(t) for t in tokens]
+        elif args.do_lemma:
+            doc = lemmatizer(' '.join(tokens))
+            tokens = [t.lemma_ for t in doc]
 
-        #exclude stopwords from stemmed words
-        if args.keep_stop_words:
-            stems = [stemmer.stem(t) for t in tokens]
-        else:
-            stems = [stemmer.stem(t) for t in tokens if t not in stop_words]
-        return ' '.join(stems)
+        #exclude stopwords from stemmed/lemmatized words
+        if not args.keep_stop_words:
+            tokens = [t for t in tokens if t not in stop_words]
+
+        return ' '.join(tokens)
 
     if args.do_train: 
         df_train = df[df['date'].apply(lambda x: int(x[:4]) < year and int(x[:4])>=2000)]
