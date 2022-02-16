@@ -120,7 +120,7 @@ def main():
     random.shuffle(files_list)
 
 
-    df_pubid_ipcs = pd.read_csv(args.pubid_ipcs_file, dtype=object)
+    df_pubid_ipcs = pd.read_csv(args.pubid_ipcs_file, dtype={'pub_id': str, 'ipcs': str})
     dict_pubid_ipcs = dict(zip(df_pubid_ipcs.pub_id, df_pubid_ipcs.ipcs))
 
     columns = ['group_ids', 'id', 'date', 'text']
@@ -232,7 +232,7 @@ def main():
                 else:
                     continue
                 res_dict['id'] = str(pat_file).split('_')[-3].strip()
-                res_dict['group_ids'] = dict_pubid_ipcs[res_dict['id']].strip()
+                res_dict['group_ids'] = str(dict_pubid_ipcs[res_dict['id']]).strip()
 
                 year_of_f = str(pat_file).split('_')[-4]
                 res_dict['date'] = f'{year_of_f}-01-01'

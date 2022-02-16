@@ -78,7 +78,7 @@ def eval(predictions, labels, k=1):
     return (precision / (k * nexamples), precision / nlabels)
     
 global language 
-language = {'fr': 'french', 'en':'english'}
+language = {'fr': 'french', 'en':'english', 'de': 'german'}
 
 
 def main():
@@ -88,6 +88,7 @@ def main():
 
     parser.add_argument("--fr_stop_words_file", default="stopwords-fr.txt", type=str)
     parser.add_argument("--en_stop_words_file", default="stopwords-en.txt", type=str)
+    parser.add_argument("--de_stop_words_file", default="stopwords-de.txt", type=str)
 
     parser.add_argument("--pred_level", default=4, type=int, choices={1, 3, 4, 6, 8}, help="Target IPC/CPC level of patent classification.")
 
@@ -124,7 +125,7 @@ def main():
     # lemmatizer and stemmer can not be used at the same time  
     assert args.do_lemma != args.do_stemmer
 
-    output_path = '_'.join(["./epo_tfidf", args.model, str(args.max_input_length), str(args.feature_dimension), indice_stop_words, indice_do_stemmer, indice_do_lemma, str(args.max_iter)])
+    output_path = '_'.join(["./epo_tfidf", args.model, str(args.max_input_length), str(args.feature_dimension), indice_stop_words, indice_do_stemmer, indice_do_lemma])
     output_path = Path(output_path)
 
     if not output_path.exists():
@@ -141,7 +142,10 @@ def main():
         stemmer = SnowballStemmer(language[args.lang])
     if args.do_lemma:
         global lemmatizer 
-        model_name = f"{args.lang}_core_news_sm"
+        if args.lang == 'en':
+            model_name = "en_core_web_sm"
+        else:
+            model_name = f"{args.lang}_core_news_sm"
         lemmatizer = spacy.load(model_name, disable = ['parser','ner'])
 
     if not args.keep_stop_words:
@@ -171,6 +175,19 @@ def main():
             from spacy.lang.fr.stop_words import STOP_WORDS as en_stop
             stop_words += list(en_stop)
             stop_words = list(set(stop_words))
+        elif args.lang == 'de':
+            # source1: https://raw.githubusercontent.com/stopwords-iso/stopwords-de/master/stopwords-de.txt
+            with open(args.de_stop_words_file,'r') as in_f:
+                lines = in_f.read().splitlines()
+            stop_words += lines
+            # source2: nltk
+            from nltk.corpus import stopwords
+            stop_words += stopwords.words('german')
+            # source3: spacy 
+            from spacy.lang.de.stop_words import STOP_WORDS as de_stop
+            stop_words += list(de_stop)
+            stop_words = list(set(stop_words))
+
         print(' Done! Number of stop words: ', len(stop_words))
 
     
@@ -248,7 +265,7 @@ def main():
         pipeline.fit(X_train.copy(), y_train)
 
         # save model
-        secs_name = args.in_dir.split('/')[-1]
+        secs_name = args.in_dir.split('/')[-2]
         pickle.dump((pipeline, mlb), open(os.path.join(output_path, f'{secs_name}-{args.pred_level}.pkl'), 'wb'))
         print('Model saved!')
 
@@ -259,7 +276,7 @@ def main():
             y_test = [label.split(',') for label in df_test[label].values]
 
             # read model
-            secs_name = args.in_dir.split('/')[-1]
+            secs_name = (args.in_dir).split('/')[-2]
             pipeline, mlb = pickle.load(open(os.path.join(output_path, f'{secs_name}-{args.pred_level}.pkl'), 'rb'))
             print('Model loaded!')
 
@@ -298,7 +315,7 @@ def main():
                                'recall': recalls, 
                                'F1_at_k': f1_at_ks})
 
-        res_df.to_csv(os.path.join(output_path, f'SVC-{secs_name}-{args.pred_level}.res'), index=False)
+        res_df.to_csv(os.path.join(output_path, f'{secs_name}-{args.pred_level}.res'), index=False)
         print(res_df)
         
         eval_micro = eval(predictions, y_test, k=K)
