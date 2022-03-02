@@ -1,8 +1,9 @@
 from pathlib import Path
+import re
 
 # enter your level of IPC/CPC here
 level = 8
-DIR = './20170101'
+DIR = './20210101'
 
 def get_list(in_dir = './'):
     input_path = Path(in_dir)
@@ -34,10 +35,14 @@ for f in files_list:
         titles = [line.split('\t')[1] for line in lines if len(line.split('\t')[0]) == 4]
     if level == 6:
         labels = [line.split('\t')[0][:-6] for line in lines if len(line.split('\t')[0]) > 4 and line.split('\t')[0][-6:] == '000000']
+        labels = [" ".join([line[:4], re.sub(r'\w{4}[0]*', '', line)]) for line in labels]
+
         titles = [line.split('\t')[-1][:-6] for line in lines if len(line.split('\t')[0]) > 4 and line.split('\t')[0][-6:] == '000000']
     if level == 8:
-        labels = [line.split('\t')[0] for line in lines if len(line.split('\t')[0]) > 12 and line.split('\t')[0][-6:] != '000000']
-        titles = [line.split('\t')[-1] for line in lines if len(line.split('\t')[0]) > 12 and line.split('\t')[0][-6:] != '000000']
+        labels = [line.split('\t')[0] for line in lines if len(line.split('\t')[0]) > 12]# and line.split('\t')[0][-6:] != '000000']
+        labels = [" ".join([line[:4], re.sub(r'\w{4}[0]*', '', line[:-6]) + "/" +  "".join(line[-6:-4]) + "".join([c for c in line[-4:] if c!="0"])]) for line in labels]
+
+        titles = [line.split('\t')[-1] for line in lines if len(line.split('\t')[0]) > 12]# and line.split('\t')[0][-6:] != '000000']
     
     labels_list.extend(labels)
     titles_list.extend(titles)
