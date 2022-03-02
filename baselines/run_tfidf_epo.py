@@ -1,3 +1,4 @@
+from tokenize import Name
 from xmlrpc.client import boolean
 import pandas as pd 
 import numpy as np
@@ -20,6 +21,18 @@ from sklearn.pipeline import Pipeline
 from tqdm import tqdm
 import spacy
 
+def read_tsv(file_path, labels_list, ipc_level=4):
+    texts = []
+    labels = []
+    with open(file_path, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            texts.append(row['text'])
+            labels_to_check = list(set([l[:ipc_level] for l in row['group_ids'].split(',')]))
+            labels_checked = [l for l in labels_to_check if l in labels_list]
+            labels.append(','.join(labels_checked))
+    df = pd.DataFrame(zip(texts, labels), columns=['text','IPC' + str(ipc_level)])
+    return df
 
 def precision(actual, predicted, k):
     act_set = set(actual)
@@ -65,29 +78,26 @@ def eval(predictions, labels, k=1):
     return (precision / (k * nexamples), precision / nlabels)
     
 global language 
-language = {'fr': 'french', 'en':'english'}
+language = {'fr': 'french', 'en':'english', 'de': 'german'}
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--in_file", default='../data/INPI/inpi_final.csv', type=str, help="Path to input directory.")
+    parser.add_argument("--in_dir", required=True, type=str, help="Path to input directory.")
     parser.add_argument("--lang", default='fr', type=str, choices={"fr", "en", "de"}, help="Language of the input text.")
 
     parser.add_argument("--fr_stop_words_file", default="stopwords-fr.txt", type=str)
     parser.add_argument("--en_stop_words_file", default="stopwords-en.txt", type=str)
+    parser.add_argument("--de_stop_words_file", default="stopwords-de.txt", type=str)
 
     parser.add_argument("--pred_level", default=4, type=int, choices={1, 3, 4, 6, 8}, help="Target IPC/CPC level of patent classification.")
-    parser.add_argument("--target_section", 
-                        type=str, 
-                        required=True, 
-                        choices={"title","abstract","description","claims"}, 
-                        action = "append",
-                        help="Target section(s) to be used to train the model.")
+
     parser.add_argument("--model", type=str, required=True, choices={"SVM","NB","LR"}, help="Model selected for training. (SVM stands for Support Vector Machine, NB stands for Naive Baysian, and LR stands for Logistic Regression.)")
     parser.add_argument("--do_train", action="store_true")
     parser.add_argument("--do_test", action="store_true")
     parser.add_argument("--K", default=1, type=int, help="Selection of K for the metrics (Precision/Recall @ k).")
-    parser.add_argument("--split_by_year", default=2017, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
+    parser.add_argument("--label_file", default='../data/ipc-sections/20210101/labels_group_id_4.tsv', type=str)
+   
     parser.add_argument("--max_input_length", default = 128, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
     parser.add_argument("--decay_sampling", action="store_true", help="Whether to sample examples using decay distribution.") #TODO
     parser.add_argument("--feature_dimension", type=int, default=728, help="Dimension of input features (of tf-idf) for classifier.")
@@ -115,7 +125,7 @@ def main():
     # lemmatizer and stemmer can not be used at the same time  
     assert args.do_lemma != args.do_stemmer
 
-    output_path = '_'.join(["./models_tfidf", args.model, str(args.max_input_length), str(args.feature_dimension), indice_stop_words, indice_do_stemmer, indice_do_lemma, str(args.max_iter)])
+    output_path = '_'.join(["./epo_tfidf", args.model, str(args.max_input_length), str(args.feature_dimension), indice_stop_words, indice_do_stemmer, indice_do_lemma])
     output_path = Path(output_path)
 
     if not output_path.exists():
@@ -132,7 +142,10 @@ def main():
         stemmer = SnowballStemmer(language[args.lang])
     if args.do_lemma:
         global lemmatizer 
-        model_name = f"{args.lang}_core_news_sm"
+        if args.lang == 'en':
+            model_name = "en_core_web_sm"
+        else:
+            model_name = f"{args.lang}_core_news_sm"
         lemmatizer = spacy.load(model_name, disable = ['parser','ner'])
 
     if not args.keep_stop_words:
@@ -162,21 +175,32 @@ def main():
             from spacy.lang.fr.stop_words import STOP_WORDS as en_stop
             stop_words += list(en_stop)
             stop_words = list(set(stop_words))
+        elif args.lang == 'de':
+            # source1: https://raw.githubusercontent.com/stopwords-iso/stopwords-de/master/stopwords-de.txt
+            with open(args.de_stop_words_file,'r') as in_f:
+                lines = in_f.read().splitlines()
+            stop_words += lines
+            # source2: nltk
+            from nltk.corpus import stopwords
+            stop_words += stopwords.words('german')
+            # source3: spacy 
+            from spacy.lang.de.stop_words import STOP_WORDS as de_stop
+            stop_words += list(de_stop)
+            stop_words = list(set(stop_words))
+
         print(' Done! Number of stop words: ', len(stop_words))
 
+    
+    print("***** Reading standard label file *****")
+    with open(args.label_file, 'r') as in_f:
+        lines = in_f.read().splitlines()
+    labels_list = [l.split('\t')[0] for l in lines]
+
     print("***** Creating training and testing data *****")
-    ### READ DATA
-    df = pd.read_csv(args.in_file, dtype=str).dropna()
-    dict_target_secs = {'title': 'title',
-                        'abstract': 'abs',
-                        'claims': 'claims',
-                        'description': 'desc'}
-    target_sections = [dict_target_secs[s] for s in args.target_section]
-    for sec in target_sections:
-        df[sec] = df[sec].apply(str)
-    df['text'] = df[target_sections].apply('. '.join, axis=1)
-  
-    year = args.split_by_year
+    df_train = read_tsv(os.path.join(args.in_dir, 'train.tsv'), labels_list, ipc_level=args.pred_level)
+    df_test = read_tsv(os.path.join(args.in_dir, 'test.tsv'), labels_list, ipc_level=args.pred_level)
+    print(df_train)
+    print(df_test)
     label = 'IPC' + str(args.pred_level)
 
     # ### Especially for decay sampling TODO
@@ -206,14 +230,10 @@ def main():
         return ' '.join(tokens)
 
     if args.do_train: 
-        df_train = df[df['date'].apply(lambda x: int(x[:4]) < year and int(x[:4])>=2000)]
-        df_train = df_train[['text', label]]#.dropna()
         df_train = df_train.sample(frac=1, random_state=666).reset_index(drop=True)
         X_train = df_train['text'].apply(tokenize_and_stem).values
         y_train = [label.split(',') for label in df_train[label].values]
 
-        df_test = df[df['date'].apply(lambda x: int(x[:4]) >= year)]
-        df_test = df_test[['text', label]]#.dropna()
         df_test = df_test.sample(frac=1, random_state=666).reset_index(drop=True)
         X_test = df_test['text'].apply(tokenize_and_stem).values
         y_test = [label.split(',') for label in df_test[label].values]
@@ -245,21 +265,19 @@ def main():
         pipeline.fit(X_train.copy(), y_train)
 
         # save model
-        secs_name = '_'.join(target_sections)
-        pickle.dump((pipeline, mlb), open(os.path.join(output_path, f'{secs_name}-{args.split_by_year}-{args.pred_level}.pkl'), 'wb'))
+        secs_name = args.in_dir.split('/')[-2]
+        pickle.dump((pipeline, mlb), open(os.path.join(output_path, f'{secs_name}-{args.pred_level}.pkl'), 'wb'))
         print('Model saved!')
 
     if args.do_test:
         if not args.do_train:
-            df_test = df[df['date'].apply(lambda x: int(x[:4]) >= year)]
-            df_test = df_test[['text', label]].dropna()
             df_test = df_test.sample(frac=1, random_state=666).reset_index(drop=True)
             X_test = df_test['text'].apply(tokenize_and_stem).values
             y_test = [label.split(',') for label in df_test[label].values]
 
             # read model
-            secs_name = '_'.join(target_sections)
-            pipeline, mlb = pickle.load(open(os.path.join(output_path, f'{secs_name}-{args.split_by_year}-{args.pred_level}.pkl'), 'rb'))
+            secs_name = (args.in_dir).split('/')[-2]
+            pipeline, mlb = pickle.load(open(os.path.join(output_path, f'{secs_name}-{args.pred_level}.pkl'), 'rb'))
             print('Model loaded!')
 
         class_list = list(mlb.classes_)
@@ -297,7 +315,7 @@ def main():
                                'recall': recalls, 
                                'F1_at_k': f1_at_ks})
 
-        res_df.to_csv(os.path.join(output_path, f'SVC-{secs_name}-{args.split_by_year}-{args.pred_level}.res'), index=False)
+        res_df.to_csv(os.path.join(output_path, f'{secs_name}-{args.pred_level}.res'), index=False)
         print(res_df)
         
         eval_micro = eval(predictions, y_test, k=K)
