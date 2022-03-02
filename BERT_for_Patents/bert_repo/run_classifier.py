@@ -83,9 +83,9 @@ flags.DEFINE_integer("eval_batch_size", 8, "Total batch size for eval.")
 
 flags.DEFINE_integer("predict_batch_size", 8, "Total batch size for predict.")
 
-flags.DEFINE_float("learning_rate", 5e-5, "The initial learning rate for Adam.")
+flags.DEFINE_float("learning_rate", 3e-5, "The initial learning rate for Adam.")
 
-flags.DEFINE_float("num_train_epochs", 3.0,
+flags.DEFINE_float("num_train_epochs", 4.0,
                    "Total number of training epochs to perform.")
 
 flags.DEFINE_float(
@@ -224,7 +224,7 @@ class DataProcessor(object):
   def _read_tsv(cls, input_file, quotechar=None):
     """Reads a tab separated value file."""
     with tf.io.gfile.GFile(input_file, "r") as f:
-      if FLAGS.task_name == 'PMLP' and 'uspto' not in (FLAGS.data_dir).lower():
+      if FLAGS.task_name == 'PMLP': # and 'uspto' not in (FLAGS.data_dir).lower():
         reader = csv.DictReader(f)
         lines = []
         for line in reader:
@@ -1133,6 +1133,12 @@ def run_predict(estimator, predict_examples, label_list, tokenizer, task_name):
 
 
 def main(_):
+  ########################## ADDED BY ZY FOR INCREASING BATCH SIZE TO 64? ######################
+  # Create a MirroredStrategy.
+  strategy = tf.distribute.MirroredStrategy()
+  print("Number of devices: {}".format(strategy.num_replicas_in_sync))
+  #############################################################################################
+
   tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
   processors = {
