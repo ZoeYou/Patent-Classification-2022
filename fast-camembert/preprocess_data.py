@@ -1,6 +1,7 @@
-import os 
+import os, csv, sys
 import argparse
 import pandas as pd
+csv.field_size_limit(sys.maxsize)
 
 
 def multi_hot(row):
@@ -21,7 +22,6 @@ def multi_hot(row):
 
 def create_df(df, file_name, target_sections, IPC_level, add_context_tokens, concatenate_sections):
     column_names = list(label_map.keys())
-
 
     if add_context_tokens:
         for s in target_sections:
@@ -51,7 +51,7 @@ def main():
 
     ##Required parameters
     parser.add_argument("--input_file",
-                        default='../data/INPI/inpi_final.csv',
+                        default='../data/INPI/new_extraction/output/inpi_new_final.csv',
                         type=str,
                         help="original input file")
 
@@ -62,7 +62,7 @@ def main():
                         help="The target section(s) of patent corpus.")
 
     parser.add_argument("--label_file",
-                        default='../data/ipc-sections/20170101/labels_group_id_4.tsv',
+                        default='../data/ipc-sections/20210101/labels_group_id_4.tsv',
                         type=str,
                         help="corresponding label file")
 
@@ -72,7 +72,7 @@ def main():
                         help="target IPC classification level")
 
     parser.add_argument("--split_year",
-                        default=2017,
+                        default=2020,
                         type=str,
                         help="The year used to split training/testing data. (<split_year for training data, >=split_year for testing data.)")
     
@@ -97,8 +97,8 @@ def main():
         label_map[label] = i
 
     # create label file if does not exist
-    if not os.path.isfile('labels_group_id_' + args.IPC_level + '.csv'):
-        with open('labels_group_id_' + args.IPC_level + '.csv', 'w') as out_f:
+    if not os.path.isfile('labels_group_id_' + str(args.IPC_level) + '.csv'):
+        with open('labels_group_id_' + str(args.IPC_level) + '.csv', 'w') as out_f:
             for lab in label_list:
                 out_f.write(lab + '\n')
 
@@ -115,7 +115,7 @@ def main():
     else:
         indice_cs = "nocs"
 
-    output_path = '_'.join[args.input_file.split('/')[-1].split('.')[0], sections_name, args.IPC_level, indice_ct, indice_cs]
+    output_path = '_'.join([args.input_file.split('/')[-1].split('.')[0], sections_name, str(args.IPC_level), indice_ct, indice_cs])
 
     try:
         os.makedirs(output_path)
@@ -127,8 +127,8 @@ def main():
     train_df0 = df0[df0['date'].apply(lambda x: x < int(f'{args.split_year}0000'))].reset_index(drop=True)
     test_df0 = df0[df0['date'].apply(lambda x: x >= int(f'{args.split_year}0000'))].reset_index(drop=True)
 
-    create_df(train_df0, output_path+'/train.csv', args.target, args.IPC_level, args.add_context_tokens, args.concat_sections)
-    create_df(test_df0, output_path+'/test.csv', args.target, args.IPC_level, args.add_context_tokens, args.concat_sections)
+    create_df(train_df0, output_path+'/train.csv', target_sections, str(args.IPC_level), args.add_context_tokens, args.concat_sections)
+    create_df(test_df0, output_path+'/test.csv', target_sections, str(args.IPC_level), args.add_context_tokens, args.concat_sections)
 
 
 if __name__ == "__main__":

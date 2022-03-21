@@ -51,7 +51,7 @@ def recall(actual, predicted, k):
 
 def eval(predictions, labels, k=1):
     """
-    Return precision and recall modeled after fasttext's test
+    Return precision and recall 
     """
     precision = 0.0
     nexamples = 0
@@ -70,7 +70,7 @@ language = {'fr': 'french', 'en':'english'}
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--in_file", default='../data/INPI/inpi_final.csv', type=str, help="Path to input directory.")
+    parser.add_argument("--in_file", default='../data/INPI/new_extraction/output/inpi_new_final.csv', type=str, help="Path to input directory.")
     parser.add_argument("--lang", default='fr', type=str, choices={"fr", "en", "de"}, help="Language of the input text.")
 
     parser.add_argument("--fr_stop_words_file", default="stopwords-fr.txt", type=str)
@@ -87,10 +87,10 @@ def main():
     parser.add_argument("--do_train", action="store_true")
     parser.add_argument("--do_test", action="store_true")
     parser.add_argument("--K", default=1, type=int, help="Selection of K for the metrics (Precision/Recall @ k).")
-    parser.add_argument("--split_by_year", default=2017, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
-    parser.add_argument("--max_input_length", default = 128, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
+    parser.add_argument("--split_by_year", default=2020, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
+    parser.add_argument("--max_input_length", default = 1000, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
     parser.add_argument("--decay_sampling", action="store_true", help="Whether to sample examples using decay distribution.") #TODO
-    parser.add_argument("--feature_dimension", type=int, default=728, help="Dimension of input features (of tf-idf) for classifier.")
+    parser.add_argument("--feature_dimension", type=int, default=10000, help="Dimension of input features (of tf-idf) for classifier.")
     parser.add_argument("--keep_stop_words", action="store_true", help="Whether to keep stop words instead of removing them")
     parser.add_argument("--do_stemmer", default=True, type=lambda x: (str(x).lower() == 'true'), help="Whether to apply a stemmer.")
     parser.add_argument("--do_lemma", default=False, type=lambda x: (str(x).lower() == 'true'), help="Whether to apply lemmatization.")
@@ -166,15 +166,15 @@ def main():
 
     print("***** Creating training and testing data *****")
     ### READ DATA
-    df = pd.read_csv(args.in_file, dtype=str).dropna()
+    df = pd.read_csv(args.in_file, dtype=str, engine="python").dropna()
     dict_target_secs = {'title': 'title',
                         'abstract': 'abs',
                         'claims': 'claims',
                         'description': 'desc'}
     target_sections = [dict_target_secs[s] for s in args.target_section]
     for sec in target_sections:
-        df[sec] = df[sec].apply(str)
-    df['text'] = df[target_sections].apply('. '.join, axis=1)
+        df.loc[:,sec] = df[sec].apply(str)
+    df.loc[:,'text'] = df[target_sections].apply('. '.join, axis=1)
   
     year = args.split_by_year
     label = 'IPC' + str(args.pred_level)

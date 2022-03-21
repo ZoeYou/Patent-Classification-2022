@@ -11,9 +11,9 @@ import logging
 DATA_PATH = sys.argv[1]
 LABEL_PATH = sys.argv[2]
 MAX_LEN = int(sys.argv[3]) # 128
-n_epochs = int(sys.argv[4]) #3
-TRAIN_BATCH_SIZE = int(sys.argv[5]) #32
-model_name = sys.argv[6] #"camembert/camembert-large"
+n_epochs = int(sys.argv[4]) #4
+TRAIN_BATCH_SIZE = int(sys.argv[5]) #64
+model_name = sys.argv[6] #"camembert/ camembert-large"
 try:
     model_path = sys.argv[7]
 except:
@@ -65,12 +65,12 @@ learner = BertLearner.from_pretrained_model(
 						finetuned_wgts_path=None,
 						warmup_steps=500,
 						multi_gpu=True,
-						is_fp16=True,
+						is_fp16=False,
 						multi_label=True,
 						logging_steps=50)
 
 learner.fit(epochs=n_epochs,
-			lr=5e-5,
+			lr=3e-5,
 			validate=True, 	# Evaluate the model after each epoch
 			schedule_type="warmup_cosine",
 			optimizer_type="adamw")
