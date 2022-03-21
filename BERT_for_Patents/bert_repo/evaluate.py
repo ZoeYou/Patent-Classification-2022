@@ -94,33 +94,37 @@ true_labels = []
 
 with open(TEST_FILE, newline='') as csvfile:
     reader = csv.DictReader(csvfile)
-        for row in tqdm(reader):
+    for row in tqdm(reader):
         true_labels.append(row['group_ids'])
 
 if level_ipc == 4:
     true_labels = [list(OrderedDict.fromkeys([label[:4] for label in l.split(',')])) for l in true_labels]
-#TODO
-#elif level_ipc == 6:
-#elif level_ipc == 8:
+elif level_ipc == 6:
+    true_labels = [list(OrderedDict.fromkeys([label.split("/")[0] for label in l.split(',')])) for l in true_labels] 
+elif level_ipc == 8:
+    true_labels = [list(label for label in l.split(',')) for l in true_labels] 
+
+
 
 with open(PRED_FILE, 'r') as in_f:
-    pred_scores = in_f.read().splitlines()
-    pred_scores = [[float(e) for e in l.split('\t')] for l in pred_scores]
+    pred_scores = []
+    for l in in_f:
+    	pred_scores.append([float(e) for e in l.split('\t')])
 
     predictions = []
             
     if level_ipc == 1:
         labels = get_labels()
-    elif level_ipc == 4:
+    else:
         labels = get_labels(label_file)
         print("Using label file: ", label_file)
         print(len(labels))
 
     for line in pred_scores:
-        dict_tmp = dict(zip(labels, line))            
-        dict_sorted = {k: v for k,v in sorted(dict_tmp.items(), reverse=True, key=itemgetter(1))}
+        dict_tmp = dict(zip(labels, line))
+        dict_sorted = {k: v for k,v in sorted(dict_tmp.items(), reverse=True, key=itemgetter(1))[:K]}
+        print(dict_sorted)
         predictions.append(list(dict_sorted.keys()))
-
 
 assert len(true_labels) == len(predictions)
 

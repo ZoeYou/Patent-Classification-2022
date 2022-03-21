@@ -93,7 +93,7 @@ flags.DEFINE_float(
     "Proportion of training to perform linear learning rate warmup for. "
     "E.g., 0.1 = 10% of training.")
 
-flags.DEFINE_integer("save_checkpoints_steps", 1000,
+flags.DEFINE_integer("save_checkpoints_steps", 10000,
                      "How often to save the model checkpoint.")
 
 flags.DEFINE_integer("iterations_per_loop", 1000,
@@ -126,9 +126,9 @@ flags.DEFINE_integer(
 
 
 ###################### ADDED BY ZY ########################
-flags.DEFINE_integer("num_classes", 9, "Total number of labels for patent CPC Level 1, A~H")  
-flags.DEFINE_string("cpc_id", None, 'CPC labels') 
-flags.DEFINE_string("prefix", None, 'CPC prefix') 
+#flags.DEFINE_integer("num_classes", 9, "Total number of labels for patent CPC Level 1, A~H")  
+#flags.DEFINE_string("cpc_id", None, 'CPC labels') 
+#flags.DEFINE_string("prefix", None, 'CPC prefix') 
 flags.DEFINE_integer("times_for_num_train_steps", 1, 'multiply train steps') 
 flags.DEFINE_integer("fixed_num_train_steps", -1, 'fixed number of train steps') 
 flags.DEFINE_bool("file_based_flag", True, "Whether to read data by file-based")
@@ -583,8 +583,10 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
     
     if FLAGS.IPC_level == 4:
         example_label_list = list(set([label[:4] for label in example.label.split(',')]))
-    # TODO
-    # elif 6,8
+    elif FLAGS.IPC_level == 6:
+        example_label_list = list(set([label.split('/')[0] for label in example.label.split(',')]))
+    elif FLAGS.IPC_level == 8:
+        example_label_list = list(set([label for label in example.label.split(',')]))
 
     for label_ in example_label_list:
         try:
