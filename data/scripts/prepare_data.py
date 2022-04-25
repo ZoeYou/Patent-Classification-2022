@@ -139,7 +139,7 @@ def main():
     target_sections = [dict_sec[s] for s in args.target]              
     sections_name = '_'.join(target_sections)
 
-    output_dir = f"epo-{lang}-{sections_name}-from-{args.start_year}to{args.end_year}"
+    output_dir = f"epo-{lang}-{sections_name}-from-{args.start_year}to{args.end_year}-splitby{args.split_year}-{args.max_text_length}"
     if args.add_context_tokens:
         context_name = ""
         for s in target_sections:
