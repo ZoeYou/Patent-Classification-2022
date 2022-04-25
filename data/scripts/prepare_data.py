@@ -187,9 +187,9 @@ def main():
 
                     except KeyError:    # if no title then just abstract
                         if args.add_context_tokens:
-                            text = in_f2.read().strip().split(' ::: ')[1]
-                        else:
                             text = '[abstract] ' + in_f2.read().strip().split(' ::: ')[1]
+                        else:
+                            text = in_f2.read().strip().split(' ::: ')[1]
 
                     if len(text) > 10:
                         res_dict['text'] = text 

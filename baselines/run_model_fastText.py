@@ -1,14 +1,14 @@
-import time, csv, fasttext, argparse, os
+import csv, fasttext, argparse, os, sys
 from pathlib import Path
 from nltk import word_tokenize, sent_tokenize
-
+csv.field_size_limit(sys.maxsize)
 import numpy as np, pandas as pd
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--in_file", default='../data/INPI/inpi_final.csv', type=str, help="Path to input directory.")
+    parser.add_argument("--in_file", default='../data/INPI/new_extraction/output/inpi_new_final.csv', type=str, help="Path to input directory.")
     parser.add_argument("--lang", default='fr', type=str, choices={"fr", "en", "de"}, help="Language of the input text.")
-    parser.add_argument("--from_pretrained", default=None, help="Whether to use pretrained vectors for initializatoin.")
+    parser.add_argument("--from_pretrained", default="wiki.fr.vec", help="Whether to use pretrained vectors for initializatoin.")
     parser.add_argument("--max_wordNgrams", type=int, default=1, help="max length of word ngram [1].")
     parser.add_argument("--one_vs_all", action="store_true", help="Whether to use independent binary classifiers for each label.")
 
@@ -23,11 +23,11 @@ def main():
                         help="Target section(s) to be used to train the model.")
     parser.add_argument("--do_train", action="store_true")
     parser.add_argument("--do_test", action="store_true")
-    parser.add_argument("--epoch", default=25, type=int, help="Number of epochs.")
+    parser.add_argument("--epoch", default=100, type=int, help="Number of epochs.")
     parser.add_argument("--K", default=1, type=int, help="Selection of K for the metrics (Precision/Recall @ k).")
-    parser.add_argument("--split_by_year", default=2017, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
-    parser.add_argument("--max_input_length", default = -1, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
-    parser.add_argument("--remove_stop_words", default=False, type=lambda x: (str(x).lower() == 'true'), help="Whether to remove stop words from input text") 
+    parser.add_argument("--split_by_year", default=2020, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
+    parser.add_argument("--max_input_length", default = 1000, type=int, help="Max input sequence length. (-1 refers to input sequence without limit.)")
+    parser.add_argument("--remove_stop_words", default=True, type=lambda x: (str(x).lower() == 'true'), help="Whether to remove stop words from input text") 
    
 
     args = parser.parse_args()
@@ -70,7 +70,7 @@ def main():
                 print(f"{output_path} already exists!")
                 
         # Import dataset
-        df = pd.read_csv(args.in_file, dtype=object).dropna()
+        df = pd.read_csv(args.in_file, dtype=object, engine="python").dropna()
         for sec in target_sections:
             df[sec] = df[sec].apply(str)
 
