@@ -2,8 +2,8 @@ from pathlib import Path
 import re
 
 # enter your level of IPC/CPC here
-level = 8
-DIR = './20210101'
+level = 6
+DIR = './20150101'
 
 def get_list(in_dir = './'):
     input_path = Path(in_dir)
@@ -12,14 +12,17 @@ def get_list(in_dir = './'):
     return files_list
 
 def remove_replicates(labells, titlels):
-    res_labels = []
-    res_titles = []
+    #res_labels = []
+    #res_titles = []
+    res = {}
 
     for i in range(len(labells)):
         label = labells[i]
-        if label not in res_labels:
-            res_labels.append(label)
-            res_titles.append(titlels[i])
+        title = titlels[i]
+        res[label] = title
+
+    res_labels = list(res.keys())
+    res_titles = list(res.values())
     return res_labels, res_titles
 
 
@@ -37,7 +40,8 @@ for f in files_list:
         labels = [line.split('\t')[0][:-6] for line in lines if len(line.split('\t')[0]) > 4 and line.split('\t')[0][-6:] == '000000']
         labels = [" ".join([line[:4], re.sub(r'\w{4}[0]*', '', line)]) for line in labels]
 
-        titles = [line.split('\t')[-1][:-6] for line in lines if len(line.split('\t')[0]) > 4 and line.split('\t')[0][-6:] == '000000']
+        titles = [line.split('\t')[-1] for line in lines if len(line.split('\t')[0]) > 4 and line.split('\t')[0][-6:] == '000000']
+
     if level == 8:
         labels = [line.split('\t')[0] for line in lines if len(line.split('\t')[0]) > 12]# and line.split('\t')[0][-6:] != '000000']
         labels = [" ".join([line[:4], re.sub(r'\w{4}[0]*', '', line[:-6]) + "/" +  "".join(line[-6:-4]) + "".join([c for c in line[-4:] if c!="0"])]) for line in labels]
