@@ -17,21 +17,31 @@ from tokenizers import BertWordPieceTokenizer
 from transformers import RobertaTokenizerFast
 
 def get_bert(bert_name):
-    if 'roberta' in bert_name:
-        print('load roberta-base')
-        model_config = RobertaConfig.from_pretrained('roberta-base')
+    if 'xlm-roberta-large' in bert_name:
+        print('load xlm-roberta-large')
+        model_config = XLMRobertaConfig.from_pretrained('xlm-roberta-large')
         model_config.output_hidden_states = True
-        bert = RobertaModel.from_pretrained('roberta-base', config=model_config)
+        bert = XLMRobertaModel.from_pretrained('xlm-roberta-large', config=model_config)    
+    elif 'xlm-roberta' in bert_name:
+        print('load xlm-roberta-base')
+        model_config = XLMRobertaConfig.from_pretrained('xlm-roberta-base')
+        model_config.output_hidden_states = True
+        bert = XLMRobertaModel.from_pretrained('xlm-roberta-base', config=model_config)    
     elif 'xlnet' in bert_name:
         print('load xlnet-base-cased')
         model_config = XLNetConfig.from_pretrained('xlnet-base-cased')
         model_config.output_hidden_states = True
         bert = XLNetModel.from_pretrained('xlnet-base-cased', config=model_config)
-    elif 'xlmroberta' in bert_name:
-        print('load xlm-roberta-base')
-        model_config = XLMRobertaConfig.from_pretrained('xlm-roberta-base')
+    elif 'roberta' in bert_name:
+        print('load roberta-base')
+        model_config = RobertaConfig.from_pretrained('roberta-base')
         model_config.output_hidden_states = True
-        bert = XLMRobertaModel.from_pretrained('xlm-roberta-base', config=model_config)      
+        bert = RobertaModel.from_pretrained('roberta-base', config=model_config)
+    elif 'camembert-large' in bert_name:
+        print('load camembert-large')
+        model_config = CamembertConfig.from_pretrained('camembert/camembert-large')
+        model_config.output_hidden_states = True
+        bert = CamembertModel.from_pretrained('camembert/camembert-large', config=model_config)
     elif 'camembert' in bert_name:
         print('load camembert-base')
         model_config = CamembertConfig.from_pretrained('camembert-base')
@@ -39,9 +49,9 @@ def get_bert(bert_name):
         bert = CamembertModel.from_pretrained('camembert-base', config=model_config)
     elif 'mbert' in bert_name:
         print('load mbert')
-        model_config = BertConfig.from_pretrained('bert-base-multilingual-uncased')
+        model_config = BertConfig.from_pretrained('bert-base-multilingual-cased')
         model_config.output_hidden_states = True
-        bert = BertModel.from_pretrained('bert-base-multilingual-uncased', config=model_config)
+        bert = BertModel.from_pretrained('bert-base-multilingual-cased', config=model_config)
     else:
         print('load bert-base-uncased')
         model_config = BertConfig.from_pretrained('bert-base-uncased')
@@ -167,7 +177,8 @@ class LightXML(nn.Module):
 
     def save_model(self, path):
         self.swa_swap_params()
-        torch.save(self.state_dict(), path)
+        torch.save(self.state_dict(), path)    # chage for Houda for getting .pt
+        #torch.save(self, path)
         self.swa_swap_params()
 
     def swa_init(self):
@@ -203,9 +214,15 @@ class LightXML(nn.Module):
         return tokenizer
 
     def get_tokenizer(self):
-        if 'xlmroberta' in self.bert_name:
+        if 'xlm-roberta-large' in self.bert_name:
+            print('load xlm-roberta-large toknizer')
+            tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-large', do_lower_case=True)
+        elif 'xlm-roberta' in self.bert_name:
             print('load xlm-roberta-base tokenizer')
             tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
+        elif 'camembert-large' in self.bert_name:
+            print('load camembert-large tokenizer')
+            tokenizer = CamembertTokenizer.from_pretrained('camembert/camembert-large', do_lower_case=True)
         elif 'camembert' in self.bert_name:
             print('load camembert-base tokenizer')
             tokenizer = CamembertTokenizer.from_pretrained('camembert-base', do_lower_case=True)
