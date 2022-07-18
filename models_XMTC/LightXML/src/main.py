@@ -60,11 +60,11 @@ def train(model, df, label_map):
         ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.lr)#, eps=1e-8)
         
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    model, optimizer = amp.initialize(model, optimizer, opt_level="O0")
 
     max_only_p5 = 0
     for epoch in range(0, args.epoch+5):
-        train_loss = model.one_epoch(epoch, trainloader, optimizer, mode='train',
+        train_loss, running_loss = model.one_epoch(epoch, trainloader, optimizer, mode='train',
                                      eval_loader=validloader if args.valid else testloader,
                                      eval_step=args.eval_step, log=LOG)
 
@@ -81,6 +81,10 @@ def train(model, df, label_map):
         if args.valid:
             log_str += ' valid'
         LOG.log(log_str)
+
+        # save loss for each batch
+        running_loss = np.array(running_loss)
+        np.save(f'loss/{get_exp_name()}-{str(epoch)}.npy', running_loss)
 
         if max_only_p5 < p5:
             max_only_p5 = p5
@@ -183,8 +187,8 @@ if __name__ == '__main__':
         group_y = load_group(args.dataset, args.group_y_group)
         validloader = DataLoader(MDataset(df, 'valid', model.get_fast_tokenizer(), label_map, args.max_len, group_y=group_y,
                                           candidates_num=args.group_y_candidate_num),
-                                 batch_size=256, num_workers=0, 
-                            shuffle=False)
+                                batch_size=256, num_workers=0, 
+                                shuffle=False)
         model.load_state_dict(torch.load(f'models/model-{get_exp_name()}.bin'))
         model = model.cuda()
 

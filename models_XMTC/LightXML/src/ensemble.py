@@ -49,19 +49,25 @@ if __name__ == '__main__':
     acc3 = [0 for i in range(len(berts) + 1)]
     acc5 = [0 for i in range(len(berts) + 1)]
 
+    # save this for error analysis
+    preds = []
+
 
     for index, true_labels in enumerate(df.label.values):
         true_labels = set([label_map[i] for i in true_labels.split()])
 
         logits = [torch.sigmoid(predicts[i][index]) for i in range(len(berts))] # not voting, it's calculating the sum of logits of all models
         logits.append(sum(logits))
-        print(logits)
+        
         logits = [(-i).argsort()[:10].cpu().numpy() for i in logits]
 
         for i, logit in enumerate(logits):
             acc1[i] += len(set([logit[0]]) & true_labels)
             acc3[i] += len(set(logit[:3]) & true_labels)
             acc5[i] += len(set(logit[:5]) & true_labels)
+
+            preds.append(logit[0])
+
 
     with open(f'./results/{args.dataset}.out', 'w') as f:
         for i, name in enumerate(berts + ['all']):
@@ -71,3 +77,8 @@ if __name__ == '__main__':
 
             print(f'{name} {p1} {p3} {p5}', file=f)
             print(f'{name} {p1} {p3} {p5}')
+
+
+    with open(f'./results/{args.dataset}_pred.txt', 'w') as out_f:
+        lines = [str(l) for l in preds]
+        out_f.write("\n".join(lines))

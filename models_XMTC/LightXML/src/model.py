@@ -270,6 +270,7 @@ class LightXML(nn.Module):
         total, acc1, acc3, acc5 = 0, 0, 0, 0
         g_acc1, g_acc3, g_acc5 = 0, 0, 0
         train_loss = 0
+        running_loss = []
 
         if mode == 'train':
             self.train()
@@ -306,6 +307,7 @@ class LightXML(nn.Module):
                     loss = outputs[1]
                     loss /= self.update_count
                     train_loss += loss.item()
+                    running_loss.append(loss.item())
 
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
@@ -379,4 +381,4 @@ class LightXML(nn.Module):
         elif mode == 'test':
             return torch.cat(pred_scores, dim=0).numpy(), torch.cat(pred_labels, dim=0).numpy() if len(pred_labels) != 0 else None
         elif mode == 'train':
-            return train_loss
+            return train_loss, running_loss
