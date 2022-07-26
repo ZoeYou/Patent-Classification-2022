@@ -1,0 +1,23 @@
+name: INPI_title_abs_2020_4
+
+train:
+  sparse: data/INPI_title_abs_2020_4/train_v1.txt
+  texts: data/INPI_title_abs_2020_4/train_texts.npy
+  labels: data/INPI_title_abs_2020_4/train_labels.npy
+
+valid:
+  size: 4000
+
+test:
+  texts: data/INPI_title_abs_2020_4/test_texts.npy
+
+embedding:
+  emb_init: data/INPI_title_abs_2020_4/emb_init.npy
+
+output:
+  res: results
+
+labels_binarizer: data/INPI_title_abs_2020_4/labels_binarizer
+
+model:
+  emb_size: 300

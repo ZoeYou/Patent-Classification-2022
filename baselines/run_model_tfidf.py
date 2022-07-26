@@ -189,7 +189,7 @@ def main():
         labels_list = ["A", "B", "C", "D", "E", "F", "G", "H"]
     else:
         with open(args.label_file, 'r') as in_f:
-            lines = in_f.read().splitlines()
+            lines = in_f.read().splitlines()[1:]
         labels_list = [l.split('\t')[0] for l in lines]
 
             
@@ -366,6 +366,11 @@ def main():
         print("***** Running prediction *****")
         y_test_pred = pipeline.predict_proba(X_test)
 
+        # save prediction scores
+        with open(os.path.join(output_path,  f'{secs_name}-{args.split_by_year}-{args.pred_level}.score'), "w") as out_f:
+            out_f.write("\t".join(mlb.classes_) + "\n")
+            out_f.write("\n".join(["\t".join([str(e) for e in l]) for l in y_test_pred]))
+
 
         pre_n_1 = []
         pre_n_3 = []
@@ -411,7 +416,7 @@ def main():
                                'nDCG@5': ndcg_n_5,                              
                                })
 
-        res_df.to_csv(os.path.join(output_path, f'SVC-{secs_name}-{args.split_by_year}-{args.pred_level}.res'), index=False)
+        res_df.to_csv(os.path.join(output_path, f'{args.model}-{secs_name}-{args.split_by_year}-{args.pred_level}.res'), index=False)
         print(res_df)
         
         for col in ["precision@1", "precision@3", "precision@5", "nDCG@1", "nDCG@3", "nDCG@5"]:

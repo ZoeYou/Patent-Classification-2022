@@ -39,12 +39,12 @@ def main():
                         help="Collect corpus til which year.")
 
     parser.add_argument("--split_year",
-                        default=2019,
+                        default=2020,
                         type=int,
                         help="The year used to split training/testing data. (<split_year for training data, >=split_year for testing data.)")
 
     parser.add_argument("--target", 
-                        type=str,
+                       type=str,
                         action="append",
                         choices={"title","abstract","description","claims"},
                         help="The target section(s) of patent corpus.")
@@ -60,7 +60,7 @@ def main():
 
     parser.add_argument("--max_text_length",
                         type=int,
-                        default=512,
+                        default=1000,
                         help="Max length for output text. (split by ' ')")
     
     parser.add_argument("--add_context_tokens",
@@ -113,6 +113,8 @@ def main():
         files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[2] == '1' and lang in str(f)]
     elif target == ['claims']:
         files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[3] == '1' and lang in str(f)]
+    elif target == ['title', 'description']:
+        files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[0] == '1' and str(f).split('_')[-1].strip('.txt')[2] == '1' and lang in str(f)]    
     elif target == ['title','abstract'] or target == ['abstract', 'title']:
         files_list = [f for f in files_list if (str(f).split('_')[-1].strip('.txt')[:2] in ['11', '01'] or (str(f).split('_')[-1].strip('.txt')[0] == '1')) and lang in str(f)]
     else:
@@ -181,15 +183,28 @@ def main():
                 with abs_file.open('r') as in_f2:
                     try:     
                         if args.add_context_tokens:
-                            text = dict_kv['TITLE'] + '. [abstract] ' + in_f2.read().strip().split(' ::: ')[1]
+                            abs_content = in_f2.read().strip().split(' ::: ')
+                            text = dict_kv['TITLE'] + '. [abstract] '
+                            if len(abs_content) > 1:
+                                text += abs_content[1]
                         else:
-                            text = dict_kv['TITLE'] + '. ' + in_f2.read().strip().split(' ::: ')[1]
+                            abs_content = in_f2.read().strip().split(' ::: ')
+                            text = dict_kv['TITLE'] + '. '
+                            if len(abs_content) > 1:
+                                text += abs_content[1]
 
                     except KeyError:    # if no title then just abstract
                         if args.add_context_tokens:
-                            text = '[abstract] ' + in_f2.read().strip().split(' ::: ')[1]
+                            abs_content = in_f2.read().strip().split(' ::: ')
+                            text = '[abstract] ' 
+                            if len(abs_content) > 1:
+                                text += abs_content[1]
                         else:
-                            text = in_f2.read().strip().split(' ::: ')[1]
+                            abs_content = in_f2.read().strip().split(' ::: ')
+                            if len(abs_content) > 1:
+                                text = abs_content[1]
+                            else:
+                                text = ""
 
                     if len(text) > 10:
                         res_dict['text'] = text 
@@ -211,6 +226,7 @@ def main():
                         return
 
             files_list = [Path(f) for f in files_list if f.split('_')[-1].strip('.txt')[:2] == '11']
+        
 
         for pat_file in tqdm(files_list):
             with pat_file.open('r') as in_f:
@@ -225,7 +241,8 @@ def main():
                 if args.add_context_tokens:
                     text = '. '.join([dict_context_tokens[k] + ' ' + v for k, v in zip(keys, vals) if k in target_sections]).strip()
                 else:
-                    text = '. '.join([v for k, v in zip(keys, vals) if k in target_sections]).strip()
+                    # /SEP/ added for LightXML
+                    text = ' /SEP/ '.join([v.strip() for k, v in zip(keys, vals) if k in target_sections])
 
                 if len(text) > 10:
                     res_dict['text'] = ' '.join(text.split(' ')[:args.max_text_length])

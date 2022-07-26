@@ -145,7 +145,7 @@ def main():
         labels_list = ["A", "B", "C", "D", "E", "F", "G", "H"]
     else:
         with open(args.label_file, 'r') as in_f:
-            lines = in_f.read().splitlines()
+            lines = in_f.read().splitlines()[1:]
         labels_list = [l.split('\t')[0] for l in lines]   
 
     print("***** Creating training and testing data *****")
@@ -221,6 +221,7 @@ def main():
         model.save_model(os.path.join(output_path, f'fastText-{secs_name}-{args.max_input_length}-{args.split_by_year}-{args.pred_level}.bin'))
     
     if args.do_test:
+        from collections import defaultdict
         model = fasttext.load_model(os.path.join(output_path, f'fastText-{secs_name}-{args.max_input_length}-{args.split_by_year}-{args.pred_level}.bin'))
 
         print(f'fastText-{secs_name}-{args.max_input_length}-{args.split_by_year}-{args.pred_level}.bin')
@@ -239,13 +240,16 @@ def main():
         labels = [l.split(",") for l in df_test["label_orig"].tolist()]
         texts = df_test["text"].tolist()
 
+        # prediction of label scores
+        pred_scores = defaultdict(list)
+
         for i in range(len(texts)):
             true = labels[i]
-            pred = [res.replace("__label__", "") for res in model.predict(texts[i], k=5)[0]]
-
-            print(texts[i])
-            print(true)
-            print(pred)
+            labels_l, scores_l = model.predict(texts[i], k=len(model.labels))
+            for l, s in zip(labels_l, scores_l):
+                pred_scores[l.replace("__label__", "")].append(s)
+         
+            pred = [res.replace("__label__", "") for res in labels_l] 
 
             y_test.append(true)
             predictions.append(pred)
@@ -276,6 +280,10 @@ def main():
                                'nDCG@5': ndcg_n_5,                              
                                })
 
+        # save prediction scores
+        score_df = pd.DataFrame.from_dict(pred_scores)
+        score_df.to_csv(os.path.join(output_path, f'{secs_name}-{args.split_by_year}-{args.pred_level}.score'), index=False)
+        # save predictions results 
         res_df.to_csv(os.path.join(output_path, f'{secs_name}-{args.split_by_year}-{args.pred_level}.res'), index=False)
 
         for col in ["precision@1", "precision@3", "precision@5", "nDCG@1", "nDCG@3", "nDCG@5"]:
