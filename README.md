@@ -5,7 +5,7 @@ This repository includes the codes and dataset for the implementation of patent 
 # Dataset
 We present a French Patents corpus, named  INPI-CLS, with IPC labels at all levels, and we test different models at the subclass and group levels on it. Our published French patents are extracted from the INPI (French National Institute of Industrial Property)  internal database, and contain all parts of patent texts (title, abstract, claims, description) published from 2002 to 2021, each patent being annotated with all levels of IPC from sections to the subgroup labels.
 
-The dataset is available in the following link: [https://drive.google.com/drive/folders/1tfBsUkQwIpwwgDyw28EOZctaiiJqZr1Q?usp=sharing](https://drive.google.com/drive/folders/1tfBsUkQwIpwwgDyw28EOZctaiiJqZr1Q?usp=sharing). Once you have obtained the data, unzip it and place it under the directory of `/data`.
+The dataset is available in the following link: [https://drive.google.com/drive/folders/1aY1bLSpUshDbyzcUTTaCIs9bpErBdu8k?usp=sharing](https://drive.google.com/drive/folders/1aY1bLSpUshDbyzcUTTaCIs9bpErBdu8k?usp=sharing). Once you have obtained the data, unzip it and place it under the directory of `/data`.
 
 To create dataset for models *AttentionXML* and *LightXML*, you have to run the code as follows:
 
