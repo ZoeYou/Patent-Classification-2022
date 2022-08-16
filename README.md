@@ -19,7 +19,6 @@ To create dataset for models *AttentionXML* and *LightXML*, you have to run the 
 cd XML/AttentionXML/
 ```
 ```
-# sblablabla
 python create_dataset.py \
 	 --in_file ../../data/inpi_new_final.csv \
 	 --label_file ../../data/ipc-sections/20210101/labels_group_id_4.tsv \
