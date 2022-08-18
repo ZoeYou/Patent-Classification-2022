@@ -156,17 +156,15 @@ def main():
         except FileExistsError:
             print(f"{output_path} already exists!")
 
+    if args.pred_level == 8:
+        labels = [l.split("\t")[0] for l in open(args.label_file, "r").read().splitlines()[1:]]
+    else:
+        labels = [l.split("\t")[0].replace(" ","") for l in open(args.label_file, "r").read().splitlines()[1:]]
 
-    labels = [l.split("\t")[0].replace(" ","") for l in open(args.label_file, "r").read().splitlines()[1:]]
-    #labels = [l.split("\t")[0] for l in open(args.label_file, "r").read().splitlines()[1:]]    #for IPC8
 
     if args.in_dir: 
         df_train = pd.read_csv(os.path.join(args.in_dir, "train.tsv"), dtype="object")
         df_test = pd.read_csv(os.path.join(args.in_dir, "test.tsv"), dtype="object")
-
-        #df_train = pd.read_csv(os.path.join(args.in_dir, "train.tsv"), sep="\t", dtype="object")
-        #df_test = pd.read_csv(os.path.join(args.in_dir, "test.tsv"), sep="\t", dtype="object")
-
 
         #label = 'IPC' + str(args.pred_level)
         label = "group_ids"
@@ -177,7 +175,7 @@ def main():
         # Import dataset
         df = pd.read_csv(args.in_file, dtype=object, engine="python").dropna()
         for sec in target_sections:
-            df.loc[:,sec] = df[sec].apply(str)
+            df.loc[:, sec] = df[sec].apply(str)
 
         df.loc[:, 'text'] = df[target_sections].apply(('  /SEP/  ').join, axis=1)
         df_train = df[df['date'].apply(lambda x: int(x[:4]) < year and int(x[:4])>=2000)]
@@ -185,19 +183,18 @@ def main():
     
         label = 'IPC' + str(args.pred_level)
         if args.pred_level == 6:
-            df_train[label] = df_train[label].apply(lambda x: label_preprocessor(str(x), args.pred_level))
-            df_test[label] = df_test[label].apply(lambda x: label_preprocessor(str(x), args.pred_level))
+            df_train.loc[:, label] = df_train[label].apply(lambda x: label_preprocessor(str(x), args.pred_level))
+            df_test.loc[:, label] = df_test[label].apply(lambda x: label_preprocessor(str(x), args.pred_level))
 
     df_train = df_train[[label, 'text']]
     df_test = df_test[[label, 'text']]
 
-    label_map = dict(zip(labels, range(0, len(labels)))) ### MODIFIED BY ZY 08/03 ==> use code instead of digits ==> not a good idea
+    label_map = dict(zip(labels, range(0, len(labels))))
 
     # remove "\n" in the texts
     df_train['text'] = df_train['text'].apply(lambda x: str(x).replace("\n", " ").replace("   ", " "))
     df_test['text'] = df_test['text'].apply(lambda x: str(x).replace("\n", " ").replace("   ", " "))
 
-        
     ### transform labels into numbers
     # remove labels that do not exist in label file
     df_train[label] = df_train[label].apply(lambda x: label_encoding(str(x), labels, label_map))
@@ -206,10 +203,8 @@ def main():
     print(df_train)
     print(df_test)
 
-    # remove labels in test set that are not in train set
-    train_labels =[e for l in df_train[label].dropna().to_list() for e in l.split()]
-
-
+    ## remove labels in test set that are not in train set
+    #train_labels = [e for l in df_train[label].dropna().to_list() for e in l.split()]
     #df_test[label] = df_test[label].apply(lambda x: filter_train_labels(x, train_labels))
 
     # drop patent examples which do not have corresponding labels
@@ -217,7 +212,7 @@ def main():
     df_test = df_test.dropna().reset_index(drop=True)
 
     # create tf-idf vectorizer 
-    featureVectorizer = TfidfVectorizer(max_features=10000)
+    featureVectorizer = TfidfVectorizer(max_features=10000, max_df = 0.9)
     X_train = featureVectorizer.fit_transform(df_train['text'].tolist())
     
     # save v1 file

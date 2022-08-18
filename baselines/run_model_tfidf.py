@@ -395,9 +395,6 @@ def main():
             ndcg_3 = nDCG(true, pred, 3)
             ndcg_5 = nDCG(true, pred, 5)
 
-            if pre_1 != ndcg_1:
-                print(666666, true, pred)
-
             pre_n_1.append(pre_1)
             pre_n_3.append(pre_3)
             pre_n_5.append(pre_5)

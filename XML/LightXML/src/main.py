@@ -17,15 +17,12 @@ from dataset import MDataset, createDataCSV
 from log import Logger
 
 def load_group(dataset, group_tree=0):
-    if dataset == 'wiki500k':
-        return np.load(f'./data/Wiki-500K/label_group{group_tree}.npy', allow_pickle=True)
-    elif dataset == 'amazon670k':
-        return np.load(f'./data/Amazon-670K/label_group{group_tree}.npy', allow_pickle=True)
+    return np.load(f'./data/{dataset}/label_group{group_tree}.npy', allow_pickle=True)
 
 def train(model, df, label_map):
     tokenizer = model.get_tokenizer()
 
-    if args.dataset in ['wiki500k', 'amazon670k']:
+    if args.group_y_group > 0:
         group_y = load_group(args.dataset, args.group_y_group)
         train_d = MDataset(df, 'train', tokenizer, label_map, args.max_len, group_y=group_y,
                            candidates_num=args.group_y_candidate_num)#, token_type_ids=token_type_ids)
@@ -76,7 +73,7 @@ def train(model, df, label_map):
         g_p1, g_p3, g_p5, p1, p3, p5 = ev_result
 
         log_str = f'{epoch:>2}: {p1:.4f}, {p3:.4f}, {p5:.4f}, train_loss:{train_loss}'
-        if args.dataset in ['wiki500k', 'amazon670k']:
+        if args.group_y_group > 0:
             log_str += f' {g_p1:.4f}, {g_p3:.4f}, {g_p5:.4f}'
         if args.valid:
             log_str += ' valid'
@@ -96,7 +93,7 @@ def train(model, df, label_map):
 
 def get_exp_name():
     name = [args.dataset, '' if args.bert == 'bert-base' else args.bert]
-    if args.dataset in ['wiki500k', 'amazon670k']:
+    if args.group_y_group > 0:
         name.append('t'+str(args.group_y_group))
 
     return '_'.join([i for i in name if i != ''])
@@ -157,7 +154,7 @@ if __name__ == '__main__':
     print(f'load {args.dataset} dataset with '
           f'{len(df[df.dataType =="train"])} train {len(df[df.dataType =="test"])} test with {len(label_map)} labels done')
 
-    if args.dataset in ['wiki500k', 'amazon670k']:
+    if args.group_y_group > 0:
         group_y = load_group(args.dataset, args.group_y_group)
         _group_y = []
         for idx, labels in enumerate(group_y):
@@ -177,7 +174,7 @@ if __name__ == '__main__':
                          update_count=args.update_count,
                          use_swa=args.swa, swa_warmup_epoch=args.swa_warmup, swa_update_step=args.swa_step)
 
-    if args.eval_model and args.dataset in ['wiki500k', 'amazon670k']:
+    if args.eval_model and args.group_y_group > 0:
         print(f'load models/model-{get_exp_name()}.bin')
         testloader = DataLoader(MDataset(df, 'test', model.get_fast_tokenizer(), label_map, args.max_len, 
                                          candidates_num=args.group_y_candidate_num),

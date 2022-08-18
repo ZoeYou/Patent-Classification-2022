@@ -203,10 +203,20 @@ class LightXML(nn.Module):
             self.swa_state[n], p.data =  p.data.cpu(), self.swa_state[n].cuda()
 
     def get_fast_tokenizer(self):
-        if 'roberta' in self.bert_name:
+        if 'xlm-roberta-large' in self.bert_name:
+            tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-large', do_lower_case=True)
+        elif 'xlm-roberta' in self.bert_name:
+            tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
+        elif 'camembert-large' in self.bert_name:
+            tokenizer = CamembertTokenizer.from_pretrained('camembert/camembert-large', do_lower_case=True)
+        elif 'camembert' in self.bert_name:
+             tokenizer = CamembertTokenizer.from_pretrained('camembert-base', do_lower_case=True)
+        elif 'roberta' in self.bert_name:
             tokenizer = RobertaTokenizerFast.from_pretrained('roberta-base', do_lower_case=True)
         elif 'xlnet' in self.bert_name:
             tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased') 
+        elif 'mbert' in self.bert_name:
+            tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
         else:
             tokenizer = BertWordPieceTokenizer(
                 "data/.bert-base-uncased-vocab.txt",

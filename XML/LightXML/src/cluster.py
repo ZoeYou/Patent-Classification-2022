@@ -84,5 +84,5 @@ if __name__ == '__main__':
     new_group = []
     for group in groups:
         new_group.append([mlb.classes_[i] for i in group])
-    np.save(f'./data/{dataset}/label_group{args.id}.npy', np.array(new_group), dtype=object)
+    np.save(f'./data/{dataset}/label_group{args.id}.npy', np.array(new_group, dtype=object))
  

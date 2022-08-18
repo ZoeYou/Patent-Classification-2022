@@ -65,7 +65,8 @@ def createDataCSV(dataset):
 class MDataset(Dataset):
     def __init__(self, df, mode, tokenizer, label_map, max_length,
                  token_type_ids=None, group_y=None, candidates_num=None):
-        assert mode in ["train", "valid", "test"]
+        ### org: assert mode in ["train", "valid", "test"]
+        assert mode in ["valid", "test"] or ("train" in mode)
         self.mode = mode
         self.df, self.n_labels, self.label_map = df[df.dataType == self.mode], len(label_map), label_map
         self.len = len(self.df)
@@ -150,7 +151,8 @@ class MDataset(Dataset):
             elif len(candidates) > self.candidates_num:
                 candidates = np.random.choice(candidates, self.candidates_num, replace=False)
 
-            if self.mode == 'train':
+            ### org: if self.mode == 'train':
+            if 'train' in self.mode:
                 return input_ids, attention_mask, token_type_ids,\
                     label_ids[candidates], group_label_ids, candidates
             else:
@@ -163,7 +165,8 @@ class MDataset(Dataset):
                                                       torch.tensor([1.0 for i in group_labels]))
             layers_group_labels_ids.append(group_label_ids)
 
-            if self.mode == 'train':
+            ### org: if self.mode == 'train':
+            if 'train' in self.mode:
                 return input_ids, attention_mask, token_type_ids, \
                     layers_group_labels_ids[::-1], layers_candidates[::-1]
             else:

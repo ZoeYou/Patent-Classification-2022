@@ -172,7 +172,7 @@ def main():
             pass #TODO
     else:
         # Import dataset
-        df = pd.read_csv(args.in_file, dtype=object, engine="python")#.dropna()
+        df = pd.read_csv(args.in_file, dtype=object, engine="python").dropna()
         for sec in target_sections:
             df.loc[:,sec] = df[sec].apply(str)
 
@@ -185,8 +185,8 @@ def main():
 
     df_train.loc[:,label] = df_train[label].apply(lambda x: ",".join([l.replace(" ","") for l in str(x).split(",") if l in labels]))
     df_test.loc[:,label] = df_test[label].apply(lambda x: ",".join([l.replace(" ","") for l in str(x).split(",") if l in labels]))
-    df_train = df_train[[label, 'text']].dropna()
-    df_test = df_test[[label, 'text']].dropna()
+    df_train = df_train[[label, 'text']]#.dropna()
+    df_test = df_test[[label, 'text']]#.dropna()
 
     print(df_train)
     print(df_test)
@@ -215,7 +215,7 @@ def main():
             from nltk.corpus import stopwords
             stop_words += stopwords.words('english')
             # source3: spacy 
-            from spacy.lang.fr.stop_words import STOP_WORDS as en_stop
+            from spacy.lang.en.stop_words import STOP_WORDS as en_stop
             stop_words += list(en_stop)
             stop_words = list(set(stop_words))
         print(' Done! Number of stop words: ', len(stop_words))
@@ -234,9 +234,6 @@ def main():
     X_train = df_train['text'].to_list()
     X_test = df_test['text'].to_list()
 
-    print(X_train[:5])
-    print(X_test[:5])
-
     if args.feature_type == "tfidf":
         from sklearn.feature_extraction.text import TfidfVectorizer
         featureVectorizer = TfidfVectorizer(max_features=args.feature_dimension)
@@ -253,8 +250,6 @@ def main():
     ### Label encoding
     mlb = MultiLabelBinarizer()
     mlb.fit(y_train+y_test)
-    print(mlb.classes_)
-    print(len(mlb.classes_))
 
     y_train = mlb.transform(y_train)
     y_test = mlb.transform(y_test)
@@ -296,11 +291,6 @@ def main():
             for label, score in line:
                 y_pred_score[class_list[label-1]].append(score)
         
-        #for k, v in y_pred_score.items():
-        #    print(k)
-        #    print(len(v))
-        #    print("----------------------")
-
 
         y_pred = [[class_list[label-1] for label, score in line] for line in y_pred]
 
@@ -342,15 +332,6 @@ def main():
         for col in ["precision@1", "precision@3", "precision@5"]:
             print(col + ": ", res_df[col].mean())
   
-        #Precision_at_k, Recall_at_k = eval(y_pred, y_true, args.K)
-        #F1_at_k = 2 * Precision_at_k * Recall_at_k / (Precision_at_k + Recall_at_k)
-        
-
-        #print(f"Number of lines in testing set : {len(y_true)}")
-        #print(f"Precision at {args.K} : {Precision_at_k}")
-        #print(f"Recall at {args.K} : {Recall_at_k}")
-        #print(f"F1 at {args.K} : {F1_at_k}")
-
 
 if __name__ == "__main__":
     main()
