@@ -1,4 +1,4 @@
-import csv, argparse, os, sys, scipy, collections
+import csv, argparse, os, sys, scipy, collections, copy
 from email.policy import default
 from pathlib import Path
 import pandas as pd
@@ -177,9 +177,9 @@ def main():
         for sec in target_sections:
             df.loc[:, sec] = df[sec].apply(str)
 
-        df.loc[:, 'text'] = df[target_sections].apply(('  /SEP/  ').join, axis=1)
-        df_train = df[df['date'].apply(lambda x: int(x[:4]) < year and int(x[:4])>=2000)]
-        df_test = df[df['date'].apply(lambda x: int(x[:4]) >= year)]
+        df.loc[:, 'text'] = df[target_sections].apply((' /SEP/ ').join, axis=1)
+        df_train = copy.deepcopy(df[df['date'].apply(lambda x: int(x[:4]) < year and int(x[:4])>=2000)])
+        df_test = copy.deepcopy(df[df['date'].apply(lambda x: int(x[:4]) >= year)])
     
         label = 'IPC' + str(args.pred_level)
         if args.pred_level == 6:
