@@ -177,7 +177,7 @@ class LightXML(nn.Module):
 
     def save_model(self, path):
         self.swa_swap_params()
-        torch.save(self.state_dict(), path)    # chage for Houda for getting .pt
+        torch.save(self.state_dict(), path)    # change for Houda for getting .pt
         #torch.save(self, path)
         self.swa_swap_params()
 
