@@ -158,7 +158,7 @@ def main():
 
     if args.pred_level == 8:
         labels = [l.split("\t")[0] for l in open(args.label_file, "r").read().splitlines()[1:]]
-    else:
+    else:   # remove " " in IPC6
         labels = [l.split("\t")[0].replace(" ","") for l in open(args.label_file, "r").read().splitlines()[1:]]
 
 
@@ -172,7 +172,7 @@ def main():
         df_test[label] = df_test[label].apply(lambda x: label_preprocessor(str(x), args.pred_level))
     
     else:
-        # Import dataset
+        # Import INPI dataset
         df = pd.read_csv(args.in_file, dtype=object, engine="python").dropna()
         for sec in target_sections:
             df.loc[:, sec] = df[sec].apply(str)
@@ -182,6 +182,9 @@ def main():
         df_test = copy.deepcopy(df[df['date'].apply(lambda x: int(x[:4]) >= year)])
     
         label = 'IPC' + str(args.pred_level)
+        ###df_train = df_train.dropna(subset = ['text',label])
+        ###df_test = df_test.dropna(subset = ['text',label])
+
         if args.pred_level == 6:
             df_train.loc[:, label] = df_train[label].apply(lambda x: label_preprocessor(str(x), args.pred_level))
             df_test.loc[:, label] = df_test[label].apply(lambda x: label_preprocessor(str(x), args.pred_level))
