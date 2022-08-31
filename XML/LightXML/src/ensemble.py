@@ -9,17 +9,27 @@ from model import LightXML
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', type=str, required=False, default='eurlex4k')
+parser.add_argument('--label_file', type=str, required=False, default='../../data/ipc-sections/20210101/labels_group_id_6.tsv')
 args = parser.parse_args()
 
 if __name__ == '__main__':
-    df, label_map = createDataCSV(args.dataset)
+    ###org: df, label_map = createDataCSV(args.dataset)
+    
+    df, _ = createDataCSV(args.dataset)
+
+    ### use original label map (label_file) instead of label map created by createDataCSV
+    labels = [l.split("\t")[0] for l in open(args.label_file).read().splitlines()[1:]]
+    label_map = {}
+    for i, label in enumerate(labels):
+        label_map[str(i)] = i
+     
     print(f'load {args.dataset} dataset with '
           f'{len(df[df.dataType =="train"])} train {len(df[df.dataType =="test"])} test with {len(label_map)} labels done')
 
     xmc_models = []
     predicts = []
     if "-fr-" in args.dataset or "INPI" in args.dataset:
-        berts = ['camembert', 'xlm-roberta', 'mbert']#, 'camembert-large'] #xlm-roberta-large', 
+        berts = ['xlm-roberta', 'camembert', 'mbert']#, 'camembert-large'] #xlm-roberta-large', 
     else:
         berts = ['bert-base', 'roberta', 'xlnet'] 
     
@@ -44,6 +54,7 @@ if __name__ == '__main__':
         xmc_models.append(model)
 
     df = df[df.dataType == 'test']
+
     total = len(df)
     acc1 = [0 for i in range(len(berts) + 1)]
     acc3 = [0 for i in range(len(berts) + 1)]
