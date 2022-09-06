@@ -40,7 +40,6 @@ def main(data_cnf, model_cnf, mode, tree_id):
     if mode is None or mode == 'train':
         logger.info('Loading Training and Validation Set')
         train_x, train_labels = get_data(data_cnf['train']['texts'], data_cnf['train']['labels'])
-        _, test_labels = get_data(data_cnf['test']['texts'], data_cnf['test']['labels'])
 
         if 'size' in data_cnf['valid']:
             random_state = data_cnf['valid'].get('random_state', 1240)
@@ -49,7 +48,12 @@ def main(data_cnf, model_cnf, mode, tree_id):
                                                                             random_state=random_state)
         else:
             valid_x, valid_labels = get_data(data_cnf['valid']['texts'], data_cnf['valid']['labels'])
-        mlb = get_mlb(data_cnf['labels_binarizer'], np.hstack((train_labels, valid_labels, test_labels)))    
+        
+        ### set mlb as self-bijection ### modified by zy 06/09/2022
+        labels = [l.split('\t')[0] for l in open(data_cnf['label_file']).read().splitlines()[1:]]
+        label_list = [str(lab) for lab in range(len(labels))]
+        ### orig: mlb = get_mlb(data_cnf['labels_binarizer'], np.hstack((train_labels, valid_labels)))  
+        mlb = get_mlb(data_cnf['labels_binarizer'], [label_list])
         train_y, valid_y = mlb.transform(train_labels), mlb.transform(valid_labels)
         labels_num = len(mlb.classes_)
         logger.info(F'Number of Labels: {labels_num}')
@@ -84,7 +88,7 @@ def main(data_cnf, model_cnf, mode, tree_id):
             if model is None:
                 model = Model(network=AttentionRNN, labels_num=labels_num, model_path=model_path, emb_init=emb_init,
                               **data_cnf['model'], **model_cnf['model'])
-            scores, labels = model.predict(test_loader, k=model_cnf['predict'].get('k', 100))
+            scores, labels = model.predict(test_loader, k=model_cnf['predict'].get('k', K))
         else:
             if model is None:
                 model = FastAttentionXML(labels_num, data_cnf, model_cnf, tree_id)

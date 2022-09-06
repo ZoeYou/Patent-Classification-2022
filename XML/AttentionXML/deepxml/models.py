@@ -16,7 +16,7 @@ from tqdm import tqdm
 from logzero import logger
 from typing import Optional, Mapping, Tuple
 
-from deepxml.evaluation import get_p_1, get_n_1
+from deepxml.evaluation import get_p_5, get_n_5
 from deepxml.modules import *
 from deepxml.optimizers import *
 
@@ -57,7 +57,7 @@ class Model(object):
         self.optimizer = DenseSparseAdam(self.model.parameters(), **kwargs)
 
     def train(self, train_loader: DataLoader, valid_loader: DataLoader, opt_params: Optional[Mapping] = None,
-              nb_epoch=100, step=100, k=1, early=50, verbose=True, swa_warmup=None, **kwargs):
+              nb_epoch=100, step=100, k=5, early=50, verbose=True, swa_warmup=None, **kwargs):
         self.get_optimizer(**({} if opt_params is None else opt_params))
         global_step, best_n1, e = 0, 0.0, 0
         for epoch_idx in range(nb_epoch):
@@ -73,18 +73,18 @@ class Model(object):
                     self.swap_swa_params()
                     labels = np.concatenate([self.predict_step(valid_x, k)[1] for valid_x in valid_loader])
                     targets = valid_loader.dataset.data_y
-                    p1, n1 = get_p_1(labels, targets), get_n_1(labels, targets)
-                    if n1 > best_n1:
+                    p5, n5 = get_p_5(labels, targets), get_n_5(labels, targets)
+                    if n5 > best_n5:
                         self.save_model()
-                        best_n1, e = n1, 0
+                        best_n5, e = n5, 0
                     else:
                         e += 1
                         if early is not None and e > early:
                             return
                     self.swap_swa_params()
                     if verbose:
-                        logger.info(F'{epoch_idx} {i * train_loader.batch_size} train loss: {round(loss, 1)} '
-                                    F'P@1: {round(p1, 1)} nDCG@1: {round(n1, 1)} early stop: {e}')
+                        logger.info(F'{epoch_idx} {i * train_loader.batch_size} train loss: {round(loss, 5)} '
+                                    F'P@5: {round(p5, 5)} nDCG@5: {round(n5, 5)} early stop: {e}')
 
     def predict(self, data_loader: DataLoader, k=100, desc='Predict', **kwargs):
         self.load_model()
