@@ -59,7 +59,7 @@ class Model(object):
     def train(self, train_loader: DataLoader, valid_loader: DataLoader, opt_params: Optional[Mapping] = None,
               nb_epoch=100, step=100, k=5, early=50, verbose=True, swa_warmup=None, **kwargs):
         self.get_optimizer(**({} if opt_params is None else opt_params))
-        global_step, best_n1, e = 0, 0.0, 0
+        global_step, best_n5, e = 0, 0.0, 0
         for epoch_idx in range(nb_epoch):
             if epoch_idx == swa_warmup:
                 self.swa_init()
