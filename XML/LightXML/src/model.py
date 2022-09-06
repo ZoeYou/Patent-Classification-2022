@@ -135,7 +135,7 @@ class LightXML(nn.Module):
 
         if is_training:
             l = labels.to(dtype=torch.bool)
-            target_candidates = torch.masked_select(candidates, l).detach().cpu()
+            target_candidates = torch.masked_select(candidates, l).detach().cpu()   # dynamic sampling
             target_candidates_num = l.sum(dim=1).detach().cpu()
         groups, candidates, group_candidates_scores = self.get_candidates(group_logits,
                                                                           group_gd=group_labels if is_training else None)
