@@ -13,6 +13,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from dataset import MDataset, createDataCSV
 from tqdm import tqdm
+from collections import defaultdict
 
 from model import LightXML
 
@@ -25,7 +26,7 @@ parser.add_argument('--model_level', type=int, required=False, default=6)
 parser.add_argument('--dataset_level', type=int, required=False, default=4)
 
 parser.add_argument('--debugging', action='store_true')
-
+parser.add_argument('--mode', required=False, default='sum', choices=['sum', 'mean', 'set'], help='Function used to calculate ensemble score.')
 #parser.add_argument('--train_label_file', type=str, required=False, default='../../data/ipc-sections/20210101/labels_group_id_8.tsv')
 #parser.add_argument('--test_label_file', type=str, required=False, default='../../data/ipc-sections/20210101/labels_group_id_6.tsv')
 
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     label_dict_train = dict(zip(range(len(labels_train)), labels_train))
 
     labels_test = [l.split("\t")[0] for l in open(f'../../data/ipc-sections/20210101/labels_group_id_{args.dataset_level}.tsv', "r").read().splitlines()[1:]]
-    label_dict_test = dict(zip(range(1, len(labels_test)+1), labels_test))
+    label_dict_test = dict(zip(range(len(labels_test)), labels_test))
 
     # levels of train and test
     train_level = args.model_level 
@@ -109,33 +110,34 @@ if __name__ == '__main__':
 
         logits = [torch.sigmoid(predicts[i][index]) for i in range(len(berts))]
         logits.append(sum(logits))
-        
-        logits = [(-i).argsort()[:100].cpu().numpy() for i in logits]
+  
+        scores = [i.sort(descending=True)[0][:1000].cpu().numpy() for i in logits]
+        logits = [(-i).argsort()[:1000].cpu().numpy() for i in logits]   # shape (4, 1000)
 
-        for i, logit in enumerate(logits):
-            # inverse logits code by inv_label_map
-            logit_code = []
+        for i, (logit, score) in enumerate(zip(logits, scores)):
+            logit_code = defaultdict(list)
 
-            for k in logit:
-                try:
-                    if test_level == 4:
-                        logit_code.append(label_dict_train[int(inv_label_map_train[k])][:4])
-                    elif test_level == 6:
-                        logit_code.append(label_dict_train[int(inv_label_map_train[k])].split('/')[0])
+            for k,s in zip(logit, score):
+                # inverse logits code by inv_label_map
+                if test_level == 4:
+                    logit_code[label_dict_train[int(inv_label_map_train[k])][:4]].append(s)
+                elif test_level == 6:
+                    logit_code[label_dict_train[int(inv_label_map_train[k])].split('/')[0]].append(s)
 
-                except KeyError:
-                    if test_level == 4:
-                        logit_code.append('A61K') # if not append the most frequent label
-                    elif test_level == 6:
-                        logit_code.append('A61K 8')
-
-            logit_code = sorted(set(logit_code), key=logit_code.index)
+            if args.mode == 'sum':
+                logit_code = {k:sum(v) for k,v in logit_code.items()}
+                logit_code = sorted(logit_code, key=logit_code.get, reverse=True)
+            elif args.mode == 'mean':
+                logit_code = {k:sum(v) for k,v in logit_code.items()}
+                logit_code = sorted(logit_code, key=logit_code.get, reverse=True)
+            else:   # mode == 'set'
+                logit_code = list(logit_code.keys())
            
             if args.debugging: 
                 print('true labels:', true_labels)
                 print('predictions:', logit_code[:10])
                 print('==========================')
-
+ 
             acc1[i] += len(set([logit_code[0]]) & true_labels)
             acc3[i] += len(set(logit_code[:3]) & true_labels)
             acc5[i] += len(set(logit_code[:5]) & true_labels)
