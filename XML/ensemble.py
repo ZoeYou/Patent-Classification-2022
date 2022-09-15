@@ -142,20 +142,6 @@ if __name__ == '__main__':
                 attentionxml_predictions[i, int(s_k)] = s_v 
         predicts.append(attentionxml_predictions)
     ######################################################################
-    """
-    for l_logits in predicts:
-        l_logits = l_logits[0]
-        print(l_logits)
-        asdf
-        l_labels = [(-i).argsort()[:100].cpu().numpy() for l in l_logits for i in l]
-        print(l_labels)
-        asdf
-        ensemble_labels = [x[0] for x in s[:len(labels[0][i])]] # must be a list of list 
-
-
-    """
-
-    ######################################################################
 
     total = len(df)
     acc1 = [0 for i in range(len(predicts) + 1)]       # shape (1, nb_ensembles * nb_of_models_in_each_ensemble + 1)
@@ -206,9 +192,7 @@ if __name__ == '__main__':
             print(f'{name} {p1} {p3} {p5}', file=f)
             print(f'{name} {p1} {p3} {p5}')
             p1s[i] = p1
-
     p1s = p1s[:-1]
-    #p1s = softmax(p1s).expand(len(label_dict))
 
     if args.weighted_average:
         acc1, acc3, acc5 = 0, 0, 0
@@ -223,17 +207,10 @@ if __name__ == '__main__':
             logits = torch.squeeze(sum(p1s * logits))
             logit_code = [str(code) for code in logits.argsort(descending=True)[:100].cpu().numpy()]
 
-            """
-            print(true_labels)
-            print(logit_code)
-            print('===================================')
-            """
-                    
             acc1 += len(set([logit_code[0]]) & true_labels)
             acc3 += len(set(logit_code[:3]) & true_labels)
             acc5 += len(set(logit_code[:5]) & true_labels)
             
-        
         p1 = acc1 / total
         p3 = acc3 / total / 3
         p5 = acc5 / total / 5
