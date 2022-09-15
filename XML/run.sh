@@ -1,1 +1,1 @@
-python ensemble.py --lightxml INPI_title_abs_2020_6 --lightxml INPI_title_desc_2020_6 --lightxml INPI_claims_2020_6 --attentionxml INPI_title_abs_2020_6 --attentionxml INPI_title_desc_2020_6 --attentionxml INPI_claims_2020_6
+python ensemble.py --lightxml INPI_title_abs_2020_6 --lightxml INPI_title_desc_2020_6 --lightxml INPI_claims_2020_6 --attentionxml INPI_title_abs_2020_6 --attentionxml INPI_title_desc_2020_6 --attentionxml INPI_claims_2020_6 --weighted_average

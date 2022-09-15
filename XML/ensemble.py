@@ -211,6 +211,7 @@ if __name__ == '__main__':
     #p1s = softmax(p1s).expand(len(label_dict))
 
     if args.weighted_average:
+        acc1, acc3, acc5 = 0, 0, 0
         for index, true_labels in enumerate(df.label.values):
             try:
                 true_labels = set([i for i in true_labels.split()])
@@ -220,19 +221,23 @@ if __name__ == '__main__':
             logits = [torch.sigmoid(predicts[i][index]) for i in range(len(predicts))]  # (nb_classifiers * nb_labels)
             logits = torch.stack(logits)
             logits = torch.squeeze(sum(p1s * logits))
-            logit_code = logits.argsort(descending=True)[:100].cpu().numpy()
+            logit_code = [str(code) for code in logits.argsort(descending=True)[:100].cpu().numpy()]
+
+            """
+            print(true_labels)
+            print(logit_code)
+            print('===================================')
+            """
                     
-            acc1[i] += len(set([logit_code[0]]) & true_labels)
-            acc3[i] += len(set(logit_code[:3]) & true_labels)
-            acc5[i] += len(set(logit_code[:5]) & true_labels)
+            acc1 += len(set([logit_code[0]]) & true_labels)
+            acc3 += len(set(logit_code[:3]) & true_labels)
+            acc5 += len(set(logit_code[:5]) & true_labels)
+            
         
-        p1 = acc1[-1] / total
-        p3 = acc3[-1] / total / 3
-        p5 = acc5[-1] / total / 5
-
-        print(f'{name} {p1} {p3} {p5}')
-
-
+        p1 = acc1 / total
+        p3 = acc3 / total / 3
+        p5 = acc5 / total / 5
+        print(f'all (weighted) {p1} {p3} {p5}')
 
     with open(f'./results/INPI_{str(args.pred_level)}_ensemble_pred.txt', 'w') as out_f:
         lines = [str(l) for l in preds]
