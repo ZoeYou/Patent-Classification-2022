@@ -68,14 +68,14 @@ def train(model, df, label_map, data_parallel):
             testloader = DataLoader(test_d, batch_size=args.batch, num_workers=1,
                                 shuffle=False)
 
-    ###model.cuda()
+    model.cuda()
 
     ###if torch.cuda.device_count() > 1:
-    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu") ## specify the GPU id's, GPU id's start from 0.
+    ###device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu") ## specify the GPU id's, GPU id's start from 0.
     #else:
     ###device = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
-    print('device:', torch.cuda.current_device())
-    model.to(device)
+    ###print('device:', torch.cuda.current_device())
+    ###model.to(device)
 
     no_decay = ['bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
@@ -141,6 +141,8 @@ def get_exp_name():
     name = [args.dataset, '' if args.bert == 'bert-base' else args.bert]
     if args.group_y_group > 0:
         name.append('t'+str(args.group_y_group))
+    if args.checkpoint:
+        name = [args.checkpoint, '+'] + name
     return '_'.join([i for i in name if i != ''])
 
 def init_seed(seed):
@@ -167,8 +169,8 @@ parser.add_argument('--seed', type=int, required=False, default=6088)
 parser.add_argument('--epoch', type=int, required=False, default=20)
 parser.add_argument('--dataset', type=str, required=False, default='eurlex4k')
 parser.add_argument('--bert', type=str, required=False, default='bert-base')
-
 parser.add_argument('--max_len', type=int, required=False, default=512)
+parser.add_argument('--hidden_dim', type=int, required=False, default=300)
 
 parser.add_argument('--valid', action='store_true')
 
@@ -181,11 +183,7 @@ parser.add_argument('--group_y_candidate_num', type=int, required=False, default
 parser.add_argument('--group_y_candidate_topk', type=int, required=False, default=10)
 
 parser.add_argument('--eval_step', type=int, required=False, default=20000)
-
-parser.add_argument('--hidden_dim', type=int, required=False, default=300)
-
 parser.add_argument('--eval_model', action='store_true')
-
 
 # added by zy
 parser.add_argument('--checkpoint', type=str, required=False, default=None, help='Name of the previous saved checkpoint. (will continue to train on this checkpoint)')
@@ -203,10 +201,8 @@ if __name__ == '__main__':
 
     LOG = Logger('log_'+get_exp_name())
 
-    ### org: df, label_map = createDataCSV(args.dataset)
-    
+    ### orig: df, label_map = createDataCSV(args.dataset) 
     print(f'load {args.dataset} dataset...')
-    
     df, _ = createDataCSV(args.dataset)
 
     ### use original label map (label_file) instead of label map created by createDataCSV
@@ -246,7 +242,7 @@ if __name__ == '__main__':
                          use_swa=args.swa, swa_warmup_epoch=args.swa_warmup, swa_update_step=args.swa_step)
 
     if args.checkpoint:
-        model.load_state_dict(torch.load(f'models/model-{args.checkpoint}.bin'))
+        model.load_state_dict(torch.load(f'models/model-{args.checkpoint}_{args.bert}.bin'))
     
     elif args.eval_model and args.group_y_group > 0:
         print(f'load models/model-{get_exp_name()}.bin')
@@ -260,7 +256,7 @@ if __name__ == '__main__':
                                           candidates_num=args.group_y_candidate_num),
                                 batch_size=256, num_workers=0, 
                                 shuffle=False)
-        model.load_state_dict(torch.load(f'models/model-{get_exp_name()}.bin'))
+        model.load_state_dict(torch.load(f'models/model-{get_exp_name()}.bin'), strict=False)
         model = model.cuda()
 
         print(len(df[df.dataType == 'test']))
