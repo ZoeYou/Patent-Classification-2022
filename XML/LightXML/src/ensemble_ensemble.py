@@ -38,7 +38,10 @@ if __name__ == '__main__':
 
     labels = [l.split("\t")[0] for l in open(f"../../data/ipc-sections/20210101/labels_group_id_{str(args.pred_level)}.tsv", "r").read().splitlines()[1:]]
     label_dict = dict(zip(labels, range(len(labels))))
-       
+    label_map = {}
+    for i, label in enumerate(labels):
+        label_map[str(i)] = i
+      
     predicts = []
 
     classifiers = [args.model1]
@@ -86,11 +89,11 @@ if __name__ == '__main__':
 
                     print(f'models/model-{model_name}.bin')
             
-                    model.load_state_dict(torch.load(f'models/model-{model_name}.bin'))
+                    model.load_state_dict(torch.load(f'models/model-{model_name}.bin'), strict=False)
 
                     tokenizer = model.get_tokenizer()
 
-                    test_d = MDataset(df_test, 'test', tokenizer, label_dict, 512)
+                    test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
 
                     if args.pred_level == 4:
                         testloader = DataLoader(test_d, batch_size=16, num_workers=0,

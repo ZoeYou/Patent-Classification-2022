@@ -8,10 +8,9 @@ import pandas as pd
 from torch.utils.data import DataLoader
 
 from collections import defaultdict
-from sklearn.preprocessing import MultiLabelBinarizer
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'LightXML', 'src'))
-from dataset import MDataset, createDataCSV
+from dataset import MDataset
 from model import LightXML
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'AttentionXML'))
@@ -58,7 +57,10 @@ def softmax(vector):
 if __name__ == '__main__':
     labels = [l.split("\t")[0] for l in open(f"../data/ipc-sections/20210101/labels_group_id_{str(args.pred_level)}.tsv", "r").read().splitlines()[1:]]
     label_dict = dict(zip(labels, range(len(labels))))
-       
+    label_map = {}
+    for i, label in enumerate(labels):
+        label_map[str(i)] = i
+
     predicts = []
 
     classifiers = {'lightxml': [], 'attentionxml': []}
@@ -82,7 +84,7 @@ if __name__ == '__main__':
     ######################### LightXML ###############################
     berts = ['camembert', 'xlm-roberta', 'mbert']
     if not predicts:
-        for sections in ['title_abs', 'title_desc', 'claims'][:len(classifiers['lightxml'])]:
+        for sections in ['_'.join(l) for l in list_sections[:len(classifiers['lightxml'])]]:
             dataset_name = f"INPI_{sections}_2020_{str(args.pred_level)}"
 
             df['text'] = df[sections]
@@ -94,14 +96,14 @@ if __name__ == '__main__':
                 print(f'LightXML/models/model-{model_name}.bin')
 
                 try:
-                    with open(f'LightXML/predictions/INPI_IPC{str(args.pred_level)}_{sections}_{model_name}_ensemble.pkl', 'rb') as in_f:
+                    with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'rb') as in_f:
                         single_predictions = pickle.load(in_f)
                 except FileNotFoundError:
                     model = LightXML(n_labels=len(label_dict), bert=berts[index])
-                    model.load_state_dict(torch.load(f'models/model-{model_name}.bin'), strict=False)
+                    model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin'), strict=False)
                     tokenizer = model.get_tokenizer()
 
-                    test_d = MDataset(df_test, 'test', tokenizer, label_dict, 512)
+                    test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
 
                     if args.pred_level <= 4:
                         testloader = DataLoader(test_d, batch_size=16, num_workers=0,
@@ -111,11 +113,11 @@ if __name__ == '__main__':
                                         shuffle=False)    
 
                     torch.cuda.empty_cache()
-                    model.cuda()
+                    model.cuda() 
                     single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0]) # torch.Size([#data, #labels])
                 
                     # save predictions
-                    with open(f'LightXML/predictions/INPI_IPC{str(args.pred_level)}_{sections}_{model_name}_ensemble.pkl', 'wb') as out_f:
+                    with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'wb') as out_f:
                         pickle.dump(single_predictions, out_f)
 
                 predicts.append(single_predictions) 
@@ -144,6 +146,8 @@ if __name__ == '__main__':
     ######################################################################
 
     total = len(df)
+    print(len(predicts))
+
     acc1 = [0 for i in range(len(predicts) + 1)]       # shape (1, nb_ensembles * nb_of_models_in_each_ensemble + 1)
     acc3 = [0 for i in range(len(predicts) + 1)]
     acc5 = [0 for i in range(len(predicts) + 1)]
@@ -182,19 +186,24 @@ if __name__ == '__main__':
             print(f"Directory 'results' already exists!")
     
 
-    p1s = torch.zeros(len(berts) * len(classifiers['lightxml']) + len(classifiers['attentionxml']) + 1, 1)
     with open(f'./results/INPI_{str(args.pred_level)}_ensemble.out', 'w') as f:
         for i, name in enumerate(berts * len(classifiers['lightxml']) + ['attentionxml'] * len(classifiers['attentionxml']) + ['all']):
             p1 = acc1[i] / total
             p3 = acc3[i] / total / 3
             p5 = acc5[i] / total / 5
-
             print(f'{name} {p1} {p3} {p5}', file=f)
             print(f'{name} {p1} {p3} {p5}')
-            p1s[i] = p1
-    p1s = p1s[:-1]
 
-    if args.weighted_average:
+    if args.weighted_average: 
+        p1s = torch.zeros(len(berts) * len(classifiers['lightxml']) + len(classifiers['attentionxml']), 1)
+        for i in range(len(p1s)):
+            p1s[i] = acc1[i] / total
+        
+        ### scale precision@1 weights with exponential function
+        #p1s = np.exp(p1s)
+        ### sigmoid function
+        p1s = 1/(1 + np.exp(-p1s))
+
         acc1, acc3, acc5 = 0, 0, 0
         for index, true_labels in enumerate(df.label.values):
             try:
