@@ -82,9 +82,9 @@ elif [[ "$1" = "USPTO2M_4" || "$1" = "epo-en-CLAIM1-from-2010to2020_4" ]]; then 
     python src/ensemble.py --dataset $1
 else
     echo start $1
-    python src/main.py --lr 1e-4 --epoch 3 --dataset $1 --swa --swa_warmup 2 --swa_step 200 --batch 16 --bert xlm-roberta --max_len 128
-    python src/main.py --lr 1e-4 --epoch 3 --dataset $1 --swa --swa_warmup 2 --swa_step 200 --batch 16 --bert camembert --max_len 128
-    python src/main.py --lr 1e-4 --epoch 3 --dataset $1 --swa --swa_warmup 2 --swa_step 200 --batch 8 --bert mbert --max_len 128
+    python src/main.py --lr 1e-4 --epoch 3 --dataset $1 --swa --swa_warmup 2 --swa_step 200 --batch 16 --bert xlm-roberta --max_len 512
+    python src/main.py --lr 1e-4 --epoch 3 --dataset $1 --swa --swa_warmup 2 --swa_step 200 --batch 16 --bert camembert --max_len 512
+    python src/main.py --lr 1e-4 --epoch 3 --dataset $1 --swa --swa_warmup 2 --swa_step 200 --batch 8 --update_count 2 --bert mbert --max_len 512
 
     python src/ensemble.py --dataset $1
 fi
