@@ -40,7 +40,6 @@ def createDataCSV(dataset):
                 label_map[l] = 0
             labels.append(i.replace('\n', ''))
 
-
     with open(f'./data/{dataset}/test_labels.txt') as f:
         print(len(label_map))
         for i in tqdm.tqdm(f):
@@ -104,13 +103,15 @@ class MDataset(Dataset):
             input_ids = self.tokenizer.encode(
                 'filling empty' if len(text) == 0 else text,
                 add_special_tokens=True,
-                max_length=max_len
+                max_length=max_len,
+                truncation=True
             )
         else:
             # fast 
             input_ids = self.tokenizer.encode(
                 'filling empty' if len(text) == 0 else text,
-                add_special_tokens=True
+                add_special_tokens=True,
+                truncation=True
             ).ids
 
         if len(input_ids) == 0:

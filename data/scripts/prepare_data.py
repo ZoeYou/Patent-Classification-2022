@@ -60,7 +60,7 @@ def main():
 
     parser.add_argument("--max_text_length",
                         type=int,
-                        default=1000,
+                        default=-1,
                         help="Max length for output text. (split by ' ')")
     
     parser.add_argument("--add_context_tokens",
@@ -113,6 +113,8 @@ def main():
         files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[2] == '1' and lang in str(f)]
     elif target == ['claims']:
         files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[3] == '1' and lang in str(f)]
+    elif target == ['title']:
+        files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[0] == '1' and lang in str(f)]
     elif target == ['title', 'description']:
         files_list = [f for f in files_list if str(f).split('_')[-1].strip('.txt')[0] == '1' and str(f).split('_')[-1].strip('.txt')[2] == '1' and lang in str(f)]    
     elif target == ['title','abstract'] or target == ['abstract', 'title']:

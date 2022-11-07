@@ -3,7 +3,7 @@ import re
 
 
 # enter your level of IPC/CPC here
-level = 4   # {4, 6, 8}
+level = 3   # {3, 4, 6, 8}
 DIR = './20210101'
 
 def get_list(in_dir = './'):
@@ -35,6 +35,10 @@ titles_list = []
 for f in files_list:
     with open(f, 'r') as in_f:
         lines = in_f.read().splitlines()
+    if level == 3:
+        labels = [line.split('\t')[0] for line in lines if len(line.split('\t')[0]) == 3]
+        titles = [line.split('\t')[1] for line in lines if len(line.split('\t')[0]) == 3]
+
     if level == 4:
         labels = [line.split('\t')[0] for line in lines if len(line.split('\t')[0]) == 4]
         titles = [line.split('\t')[1] for line in lines if len(line.split('\t')[0]) == 4]

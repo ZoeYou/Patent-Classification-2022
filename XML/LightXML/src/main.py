@@ -65,7 +65,10 @@ def train(model, df, label_map):
     model, optimizer = amp.initialize(model, optimizer, opt_level=args.mode_amp)
 
     max_only_p5 = 0
-    for epoch in range(0, args.epoch+5):
+    max_nb_epochs = args.epoch + 5
+    if args.fix_nb_epochs:
+        max_nb_epochs = max_nb_epochs - 5
+    for epoch in range(0, max_nb_epochs):
         train_loss, running_loss = model.one_epoch(epoch, trainloader, optimizer, mode='train',
                                      eval_loader=validloader if args.valid else testloader,
                                      eval_step=args.eval_step, log=LOG)
@@ -92,7 +95,7 @@ def train(model, df, label_map):
             max_only_p5 = p5
             model.save_model(f'models/model-{get_exp_name()}.bin')
 
-        if epoch >= args.epoch + 5 and max_only_p5 != p5:
+        if epoch >= max_nb_epochs and max_only_p5 != p5:
             break
 
 def get_exp_name():
@@ -137,6 +140,7 @@ parser.add_argument('--eval_model', action='store_true')
 
 # added by zy
 parser.add_argument('--checkpoint', type=str, required=False, default=None, help='Name of the previous saved checkpoint. (will continue to train on this checkpoint)')
+parser.add_argument('--fix_nb_epochs', action='store_true', help='Whether to fix the number of epochs (without +5).')
 parser.add_argument('--label_file', type=str, required=False, default='../../data/ipc-sections/20210101/labels_group_id_6.tsv')
 parser.add_argument('--mode_amp', type=str, required=False, default='O1', help='Mode of mixed precision.')
 

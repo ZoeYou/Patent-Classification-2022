@@ -111,8 +111,8 @@ def main():
     parser.add_argument("--in_file", default='../../data/INPI/new_extraction/output/inpi_new_final.csv', type=str, help="Path to input directory.")
     parser.add_argument("--in_dir", type=str, help = "Input directory (especially for EPO dataset)")
 
-    parser.add_argument("--label_file", default="../../data/ipc-sections/20210101/labels_group_id_4.tsv", type=str, help="path to the label file")
-    parser.add_argument("--pred_level", default=4, type=int, choices={1, 3, 4, 6, 8}, help="Target IPC/CPC level of patent classification.")
+    parser.add_argument("--label_file", required=False, type=str, help="path to the label file")
+    parser.add_argument("--pred_level", required=True, type=int, choices={1, 3, 4, 6, 8}, help="Target IPC/CPC level of patent classification.")
     parser.add_argument("--target_section", 
                         type=str, 
                         choices={"title","abstract","description","claims"}, 
@@ -158,7 +158,9 @@ def main():
 
     if args.pred_level == 8:
         labels = [l.split("\t")[0] for l in open(args.label_file, "r").read().splitlines()[1:]]
-    else:   # remove " " in IPC6
+    elif args.pred_level == 1:
+        labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    else:   # to remove " " in IPC6
         labels = [l.split("\t")[0].replace(" ","") for l in open(args.label_file, "r").read().splitlines()[1:]]
 
 

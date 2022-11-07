@@ -61,7 +61,7 @@ def train(model, df, label_map, curr_period):
         ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.lr)#, eps=1e-8)
         
-    model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    model, optimizer = amp.initialize(model, optimizer, opt_level=args.mode_amp)
 
     max_only_p5 = 0
     for epoch in range(0, args.epoch+5):
@@ -97,9 +97,9 @@ def train(model, df, label_map, curr_period):
 
 def get_exp_name(curr_period):
     name = [args.dataset, '' if args.bert == 'bert-base' else args.bert]
+
     if args.group_y_group > 0:
         name.append('t'+str(args.group_y_group))
-
     name.append('p'+str(curr_period))
 
     return '_'.join([i for i in name if i != ''])
@@ -182,8 +182,12 @@ parser.add_argument('--hidden_dim', type=int, required=False, default=300)
 
 parser.add_argument('--eval_model', action='store_true')
 
+
+# added by zy
 parser.add_argument('--label_file', type=str, required=True)
 parser.add_argument('--nb_periods', type=int, default=5)
+parser.add_argument('--mode_amp', type=str, required=False, default='O1', help='Mode of mixed precision.')
+
 
 args = parser.parse_args()
 
@@ -204,11 +208,11 @@ if __name__ == '__main__':
     labels = [l.split("\t")[0] for l in open(args.label_file).read().splitlines()[1:]]
     label_map = {}
     for i, label in enumerate(labels):
-        label_map[label] = i
+        label_map[str(i)] = i
 
     if args.valid:
         train_df, valid_df = train_test_split(df[df['dataType'] == 'train0'],
-                                              test_size=4000 // args.nb_periods,
+                                              test_size=4000,
                                               random_state=1240)
         df.iloc[valid_df.index.values, 2] = 'valid'
         print('valid size', len(df[df['dataType'] == 'valid']))
@@ -264,11 +268,12 @@ if __name__ == '__main__':
     curr_period += 1
 
     while curr_period < args.nb_periods:
-        # repeate the process of train
+        torch.cuda.empty_cache()
 
+        # repeate the process of train
         if args.valid:
             train_df, valid_df = train_test_split(df[df['dataType'] == f'train{str(curr_period)}'],
-                                                test_size=4000 // args.nb_periods,
+                                                test_size=4000,
                                                 random_state=1240)
             df.iloc[valid_df.index.values, 2] = 'valid'
             print('valid size', len(df[df['dataType'] == 'valid']))

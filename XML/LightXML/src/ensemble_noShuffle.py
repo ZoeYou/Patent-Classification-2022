@@ -21,7 +21,7 @@ if __name__ == '__main__':
     labels = [l.split("\t")[0] for l in open(args.label_file).read().splitlines()[1:]]
     label_map = {}
     for i, label in enumerate(labels):
-        label_map[label] = i
+        label_map[str(i+1)] = i+1
 
 
     print(f'load {args.dataset} dataset with '

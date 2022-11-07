@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
         tokenizer = model.get_tokenizer()
         
-        test_d = MDataset(df_test, 'test', tokenizer, label_map_train, 512)
+        test_d = MDataset(df_test, 'test', tokenizer, label_map_test, 512)
         testloader = DataLoader(test_d, batch_size=8, num_workers=0,
                                 shuffle=False)
 
