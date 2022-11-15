@@ -376,9 +376,9 @@ def main():
         pre_n_3 = []
         pre_n_5 = []
 
-        ndcg_n_1 = []
-        ndcg_n_3 = []
-        ndcg_n_5 = []
+        rec_n_1 = []
+        rec_n_3 = []
+        rec_n_5 = []
 
         predictions = []
 
@@ -391,32 +391,31 @@ def main():
             pre_3 = precision(true, pred, 3)
             pre_5 = precision(true, pred, 5)
 
-            ndcg_1 = nDCG(true, pred, 1)
-            ndcg_3 = nDCG(true, pred, 3)
-            ndcg_5 = nDCG(true, pred, 5)
+            rec_1 = recall(true, pred, 1)
+            rec_3 = recall(true, pred, 3)
+            rec_5 = recall(true, pred, 5)
 
             pre_n_1.append(pre_1)
             pre_n_3.append(pre_3)
             pre_n_5.append(pre_5)
         
-            ndcg_n_1.append(ndcg_1)
-            ndcg_n_3.append(ndcg_3)
-            ndcg_n_5.append(ndcg_5)
+            rec_n_1.append(rec_1)
+            rec_n_3.append(rec_3)
+            rec_n_5.append(rec_5)
 
         res_df = pd.DataFrame({'true_labels': y_test, 
                                'predict_labels': predictions, 
                                'precision@1': pre_n_1, 
                                'precision@3': pre_n_3,
                                'precision@5': pre_n_5,
-                               'nDCG@1': ndcg_n_1, 
-                               'nDCG@3': ndcg_n_3,
-                               'nDCG@5': ndcg_n_5,                              
+                               'recall@1': rec_n_1, 
+                               'recall@3': rec_n_3,
+                               'recall@5': rec_n_5,                              
                                })
 
         res_df.to_csv(os.path.join(output_path, f'{args.model}-{secs_name}-{args.split_by_year}-{args.pred_level}.res'), index=False)
-        print(res_df)
         
-        for col in ["precision@1", "precision@3", "precision@5", "nDCG@1", "nDCG@3", "nDCG@5"]:
+        for col in ["precision@1", "precision@3", "precision@5", "recall@1", "recall@3", "recall@5"]:
             print(col + ": ", res_df[col].mean())
 
 if __name__ == "__main__":
