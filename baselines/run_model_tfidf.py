@@ -276,7 +276,7 @@ def main():
             df_test = read_tsv(os.path.join(args.in_dir, 'test.tsv'), labels_list, ipc_level=args.pred_level)
 
         else:
-            df = pd.read_csv(args.in_file, dtype=str, engine="python") #.dropna() #TODO TBD
+            df = pd.read_csv(args.in_file, dtype=str, engine="python")
             dict_target_secs = {'title': 'title', 'abstract': 'abs', 'claims': 'claims', 'description': 'desc'}
 
             target_sections = [dict_target_secs[s] for s in args.target_section]

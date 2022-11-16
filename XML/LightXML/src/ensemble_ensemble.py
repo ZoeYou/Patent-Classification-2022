@@ -68,51 +68,50 @@ if __name__ == '__main__':
     df = df.dropna(subset = ['label'])
 
     berts = ['camembert', 'xlm-roberta', 'mbert']
+    cnt = 0
+    
+    for sections in ['title_abs', 'title_desc', 'claims'][:len(classifiers)]:
+        dataset_name = f"INPI_{sections}_2020_{str(args.pred_level)}"
 
-    if not predicts:
-        cnt = 0
-        for sections in ['title_abs', 'title_desc', 'claims'][:len(classifiers)]:
-            dataset_name = f"INPI_{sections}_2020_{str(args.pred_level)}"
+        df['text'] = df[sections]
+        df_test = df[['text', 'label', 'dataType']]
 
-            df['text'] = df[sections]
-            df_test = df[['text', 'label', 'dataType']]
+        for index in range(len(berts)):
+            model_name = [dataset_name, '' if berts[index] == 'bert-base' else berts[index]]
+            model_name = '_'.join([i for i in model_name if i != ''])
+            try:
+                with open(f'predictions/INPI_IPC{str(args.pred_level)}_{sections}_{model_name}_ensemble.pkl', 'rb') as in_f:
+                    single_predictions = pickle.load(in_f)
 
-            for index in range(len(berts)):
-                model_name = [dataset_name, '' if berts[index] == 'bert-base' else berts[index]]
-                model_name = '_'.join([i for i in model_name if i != ''])
-                try:
-                    with open(f'predictions/INPI_IPC{str(args.pred_level)}_{sections}_{model_name}_ensemble.pkl', 'rb') as in_f:
-                        single_predictions = pickle.load(in_f)
+            except FileNotFoundError:
+                model = LightXML(n_labels=len(label_dict), bert=berts[index])
 
-                except FileNotFoundError:
-                    model = LightXML(n_labels=len(label_dict), bert=berts[index])
+                print(f'models/model-{model_name}.bin')
+        
+                model.load_state_dict(torch.load(f'models/model-{model_name}.bin'), strict=False)
 
-                    print(f'models/model-{model_name}.bin')
+                tokenizer = model.get_tokenizer()
+
+                test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
+
+                if args.pred_level == 4:
+                    testloader = DataLoader(test_d, batch_size=16, num_workers=0,
+                                    shuffle=False)
+                elif args.pred_level > 4:
+                    testloader = DataLoader(test_d, batch_size=4, num_workers=0,
+                                    shuffle=False)    
+
+                torch.cuda.empty_cache()
+                model.cuda()
+                single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0])
             
-                    model.load_state_dict(torch.load(f'models/model-{model_name}.bin'), strict=False)
+                # save predictions
+                with open(f'predictions/INPI_IPC{str(args.pred_level)}_{sections}_{model_name}_ensemble.pkl', 'wb') as out_f:
+                    pickle.dump(single_predictions, out_f)
 
-                    tokenizer = model.get_tokenizer()
+            predicts.append(single_predictions)
 
-                    test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
-
-                    if args.pred_level == 4:
-                        testloader = DataLoader(test_d, batch_size=16, num_workers=0,
-                                        shuffle=False)
-                    elif args.pred_level > 4:
-                        testloader = DataLoader(test_d, batch_size=4, num_workers=0,
-                                        shuffle=False)    
-
-                    torch.cuda.empty_cache()
-                    model.cuda()
-                    single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0])
-                
-                    # save predictions
-                    with open(f'predictions/INPI_IPC{str(args.pred_level)}_{sections}_{model_name}_ensemble.pkl', 'wb') as out_f:
-                        pickle.dump(single_predictions, out_f)
-
-                predicts.append(single_predictions)
-
-            cnt += 1
+        cnt += 1
 
     total = len(df)
     acc1 = [0 for i in range(len(predicts) + 1)]       # shape (1, 3 * nb_of_models + 1)
@@ -121,10 +120,11 @@ if __name__ == '__main__':
 
     # save prediction results for error analysis
     preds = []
-
+    nb_trueLabels = 0
     for index, true_labels in enumerate(df.label.values):
         try:
             true_labels = set([i for i in true_labels.split()])
+            nb_trueLabels += len(true_labels)
         except AttributeError:
             continue
 
@@ -151,8 +151,12 @@ if __name__ == '__main__':
             p3 = acc3[i] / total / 3
             p5 = acc5[i] / total / 5
 
-            print(f'{name} {p1} {p3} {p5}', file=f)
-            print(f'{name} {p1} {p3} {p5}')
+            r1 = acc1 / nb_trueLabels
+            r3 = acc3 / nb_trueLabels
+            r5 = acc5 / nb_trueLabels
+
+            print(f'{name} P@1:{p1}, P@3:{p3}, P@5:{p5}, R@1:{r1}, R@3:{r3}, R@5:{r5}', file=f)
+            print(f'{name} P@1:{p1}, P@3:{p3}, P@5:{p5}, R@1:{r1}, R@3:{r3}, R@5:{r5}')
 
     with open(f'./results/INPI_{str(args.pred_level)}_ensemble_pred.txt', 'w') as out_f:
         lines = [str(l) for l in preds]

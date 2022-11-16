@@ -12,17 +12,19 @@ from collections import defaultdict
 sys.path.append(os.path.join(os.path.dirname(__file__), 'LightXML', 'src'))
 from dataset import MDataset
 from model import LightXML
+from datasets import load_dataset
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'AttentionXML'))
 from deepxml.evaluation import *
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset_path', type=str, required=False, default='../data/INPI/new_extraction/output/inpi_new_final.csv')
+parser.add_argument("--in_file", default='../data/INPI/new_extraction/output/inpi_new_final.csv', type=str, help="Path to input file of INPI-CLS data.")
 parser.add_argument('--pred_level', type=int, required=False, default=6)
 parser.add_argument('--weighted_average', action='store_true', help='Whether to use Precision@1 to ensemble the weighted average of single classifiers.')
 parser.add_argument('--lightxml', type=str, required=False, action='append')
 parser.add_argument('--attentionxml', type=str, required=False, action='append')
+parser.add_argument('--lightxml_highOnLow', type=str, required=False, action='append')
 args = parser.parse_args()
 
 def label_encoding(line, label_list, label_map):
@@ -43,10 +45,16 @@ def sort_and_deduplicate(l):
     return list(uniq(sorted(l, key=l.index)))
 
 def get_datatype(datanames, sec_names=['title','abs','claims','desc']):
+    dict_sec = defaultdict(lambda: None)
+    dict_sec["ABSTR"] = "abs"
+    dict_sec["abstract"] = "abs"
+    dict_sec["TITLE"] = "title"
+    dict_sec["CLAIM1"] = "claims"
+    dict_sec["DESCR"] = "desc"
     ret = []
     for name in datanames:
         splits = name.split('_')
-        ret.append([sec for sec in splits if sec in sec_names])
+        ret.append([sec for sec in splits if (sec in sec_names) or (dict_sec[sec] in sec_names)])
     return sort_and_deduplicate(ret)
 
 def softmax(vector):
@@ -63,18 +71,20 @@ if __name__ == '__main__':
 
     predicts = []
 
-    classifiers = {'lightxml': [], 'attentionxml': []}
+    classifiers = {'lightxml': [], 'attentionxml': [], 'lightxml_highOnLow':[]}
     if args.lightxml: classifiers['lightxml'] = args.lightxml
     if args.attentionxml: classifiers['attentionxml'] = args.attentionxml
+    if args.lightxml_highOnLow: classifiers['lightxml_highOnLow'] = args.lightxml_highOnLow
 
     # load test data of INPI with all sections (abstract, description, claims)
-    df = pd.read_csv(args.dataset_path, dtype=str, engine="python")
+    #df = load_dataset(args.dataset_path,revision="main", data_files = {"train": "inpi_cls.csv"}, split="train")
+    df = pd.read_csv(args.in_file, dtype=str, engine="python")
     df = df[df['date'].apply(lambda x: int(x[:4]) >= 2020)].dropna()
     df['dataType'] = ['test'] * len(df)
     for sec in ['title', 'abs', 'claims', 'desc']:
         df[sec] = df[sec].apply(str)
 
-    list_sections = get_datatype(classifiers['lightxml'] + classifiers['attentionxml'])
+    list_sections = get_datatype(classifiers['lightxml'] + classifiers['attentionxml'] + classifiers['lightxml_highOnLow'])
     for secs in list_sections:
         df['_'.join(secs)] = df[secs].apply(' /SEP/ '.join, axis=1)
     df = df[['_'.join(l) for l in list_sections] + [f'IPC{str(args.pred_level)}', 'dataType']]
@@ -83,44 +93,45 @@ if __name__ == '__main__':
 
     ######################### LightXML ###############################
     berts = ['camembert', 'xlm-roberta', 'mbert']
-    if not predicts:
-        for sections in ['_'.join(l) for l in list_sections[:len(classifiers['lightxml'])]]:
-            dataset_name = f"INPI_{sections}_2020_{str(args.pred_level)}"
+    ### for sections in ['_'.join(l) for l in list_sections[:len(classifiers['lightxml'])]]:
+    for lightxml_name in classifiers['lightxml']:
+        ### dataset_name = f"INPI_{sections}_2020_{str(args.pred_level)}"
+        df['text'] = df[get_datatype([lightxml_name])[0][0]]
+        df_test = df[['text', 'label', 'dataType']]
 
-            df['text'] = df[sections]
-            df_test = df[['text', 'label', 'dataType']]
+        for index in range(len(berts)):
+            model_name = '_'.join([lightxml_name, berts[index]])
+            # model_name = '_'.join([i for i in model_name if i != ''])
+            print(f'LightXML/models/model-{model_name}.bin')
 
-            for index in range(len(berts)):
-                model_name = [dataset_name, '' if berts[index] == 'bert-base' else berts[index]]
-                model_name = '_'.join([i for i in model_name if i != ''])
-                print(f'LightXML/models/model-{model_name}.bin')
+            try:
+                with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'rb') as in_f:
+                    single_predictions = pickle.load(in_f)
+            except FileNotFoundError:
+                model = LightXML(n_labels=len(label_dict), bert=berts[index])
+                model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin'), strict=False)
+                tokenizer = model.get_tokenizer()
 
-                try:
-                    with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'rb') as in_f:
-                        single_predictions = pickle.load(in_f)
-                except FileNotFoundError:
-                    model = LightXML(n_labels=len(label_dict), bert=berts[index])
-                    model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin'), strict=False)
-                    tokenizer = model.get_tokenizer()
+                test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
 
-                    test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
+                if args.pred_level <= 4:
+                    testloader = DataLoader(test_d, batch_size=16, num_workers=0,
+                                    shuffle=False)
+                elif args.pred_level > 4:
+                    testloader = DataLoader(test_d, batch_size=4, num_workers=0,
+                                    shuffle=False)    
 
-                    if args.pred_level <= 4:
-                        testloader = DataLoader(test_d, batch_size=16, num_workers=0,
-                                        shuffle=False)
-                    elif args.pred_level > 4:
-                        testloader = DataLoader(test_d, batch_size=4, num_workers=0,
-                                        shuffle=False)    
+                torch.cuda.empty_cache()
+                model.cuda() 
+                single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0]) # torch.Size([#data, #labels])
+            
+                # save predictions
+                with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'wb') as out_f:
+                    pickle.dump(single_predictions, out_f)
 
-                    torch.cuda.empty_cache()
-                    model.cuda() 
-                    single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0]) # torch.Size([#data, #labels])
-                
-                    # save predictions
-                    with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'wb') as out_f:
-                        pickle.dump(single_predictions, out_f)
+            predicts.append(single_predictions) 
 
-                predicts.append(single_predictions) 
+        # for high on low prediction
 
     ######################### AttentionXML ###############################
     model_names = classifiers['attentionxml']
@@ -205,6 +216,7 @@ if __name__ == '__main__':
         p1s = 1/(1 + np.exp(-p1s))
 
         acc1, acc3, acc5 = 0, 0, 0
+        nb_trueLabels = 0
         for index, true_labels in enumerate(df.label.values):
             try:
                 true_labels = set([i for i in true_labels.split()])
@@ -219,11 +231,17 @@ if __name__ == '__main__':
             acc1 += len(set([logit_code[0]]) & true_labels)
             acc3 += len(set(logit_code[:3]) & true_labels)
             acc5 += len(set(logit_code[:5]) & true_labels)
+            nb_trueLabels += len(true_labels)
             
         p1 = acc1 / total
         p3 = acc3 / total / 3
         p5 = acc5 / total / 5
-        print(f'all (weighted) {p1} {p3} {p5}')
+
+        r1 = acc1 / nb_trueLabels
+        r3 = acc3 / nb_trueLabels
+        r5 = acc5 / nb_trueLabels
+
+        print(f'all (weighted) P@1:{p1}, P@3:{p3}, P@5:{p5}, R@1:{r1}, R@3:{r3}, R@5:{r5}')
 
     with open(f'./results/INPI_{str(args.pred_level)}_ensemble_pred.txt', 'w') as out_f:
         lines = [str(l) for l in preds]

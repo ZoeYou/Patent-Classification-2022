@@ -90,10 +90,14 @@ def train(model, df, label_map):
         # save loss for each batch
         running_loss = np.array(running_loss)
         np.save(f'loss/{get_exp_name()}-{str(epoch)}.npy', running_loss)
+        
 
-        if max_only_p5 < p5:
-            max_only_p5 = p5
+        if len(testloader) == 0:
             model.save_model(f'models/model-{get_exp_name()}.bin')
+        else:
+            if max_only_p5 < p5:
+                max_only_p5 = p5
+                model.save_model(f'models/model-{get_exp_name()}.bin')
 
         if epoch >= max_nb_epochs and max_only_p5 != p5:
             break
