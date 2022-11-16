@@ -30,3 +30,27 @@ You can create your own training and test datasets by adjusting the parameters:
 - **pred_level**: the target prediction level of IPC (1,3,4,6,8 represent respectively IPC’s section, class, subclass, group, and subgroup level).
 - **target_section**: the part of the patent content (title, abstract, claims, description) you want to use for your patent classification model; this parameter can have multiple inputs; the order will be considered.
 - **split_by_year**: Patent documents published before this year will be split into training data, and files published after or including this year will be split into test data.
+
+
+# Citation
+
+If you use this work, please cite the following article:
+
+You Zuo, Houda Mouzoun, Samir Ghamri Doudane, Kim Gerdes, Benoît Sagot. [Patent Classification using Extreme Multi-label Learning: A Case Study of French Patents](https://hal.archives-ouvertes.fr/hal-03850405v1). SIGIR 2022 - PatentSemTech workshop, Jul 2022, Madrid, Spain.
+
+```
+@inproceedings{zuo:hal-03850405,
+  TITLE = {{Patent Classification using Extreme Multi-label Learning: A Case Study of French Patents}},
+  AUTHOR = {Zuo, You and Mouzoun, Houda and Ghamri Doudane, Samir and Gerdes, Kim and Sagot, Beno{\^i}t},
+  URL = {https://hal.archives-ouvertes.fr/hal-03850405},
+  BOOKTITLE = {{SIGIR 2022 - PatentSemTech workshop}},
+  ADDRESS = {Madrid, Spain},
+  YEAR = {2022},
+  MONTH = Jul,
+  KEYWORDS = {IPC prediction ; Clustering and Classification ; Extreme Multi-label Learning ; French ; Patent},
+  PDF = {https://hal.archives-ouvertes.fr/hal-03850405/file/PatentSemTech_2022___extended_abstract.pdf},
+  HAL_ID = {hal-03850405},
+  HAL_VERSION = {v1},
+}
+```
+
