@@ -1,4 +1,4 @@
-import torch, csv, sys, pickle, os
+import torch, csv, sys, pickle, os, argparse
 from pathlib import Path
 torch.cuda.empty_cache()
 csv.field_size_limit(sys.maxsize)
@@ -6,18 +6,8 @@ csv.field_size_limit(sys.maxsize)
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
-
 from collections import defaultdict
 
-sys.path.append(os.path.join(os.path.dirname(__file__), 'LightXML', 'src'))
-from dataset import MDataset
-from model import LightXML
-from datasets import load_dataset
-
-sys.path.append(os.path.join(os.path.dirname(__file__), 'AttentionXML'))
-from deepxml.evaluation import *
-
-import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--in_file", default='../data/INPI/new_extraction/output/inpi_new_final.csv', type=str, help="Path to input file of INPI-CLS data.")
 parser.add_argument('--pred_level', type=int, required=False, default=6)
@@ -63,7 +53,7 @@ def softmax(vector):
 
 
 if __name__ == '__main__':
-    labels = [l.split("\t")[0] for l in open(f"../data/ipc-sections/20210101/labels_group_id_{str(args.pred_level)}.tsv", "r").read().splitlines()[1:]]
+    labels = [l.split("\t")[0] for l in open(f"../data/ipc-sections/20220101/labels_group_id_{str(args.pred_level)}.tsv", "r").read().splitlines()[1:]]
     label_dict = dict(zip(labels, range(len(labels))))
     label_map = {}
     for i, label in enumerate(labels):
@@ -77,7 +67,6 @@ if __name__ == '__main__':
     if args.lightxml_highOnLow: classifiers['lightxml_highOnLow'] = args.lightxml_highOnLow
 
     # load test data of INPI with all sections (abstract, description, claims)
-    #df = load_dataset(args.dataset_path,revision="main", data_files = {"train": "inpi_cls.csv"}, split="train")
     df = pd.read_csv(args.in_file, dtype=str, engine="python")
     df = df[df['date'].apply(lambda x: int(x[:4]) >= 2020)].dropna()
     df['dataType'] = ['test'] * len(df)
@@ -91,69 +80,97 @@ if __name__ == '__main__':
     df['label'] = df[f'IPC{str(args.pred_level)}'].apply(lambda line: label_encoding(line, labels, label_dict))
     df = df.dropna(subset = ['label'])
 
+
+    
+
+
+
     ######################### LightXML ###############################
-    berts = ['camembert', 'xlm-roberta', 'mbert']
-    ### for sections in ['_'.join(l) for l in list_sections[:len(classifiers['lightxml'])]]:
-    for lightxml_name in classifiers['lightxml']:
-        ### dataset_name = f"INPI_{sections}_2020_{str(args.pred_level)}"
-        df['text'] = df[get_datatype([lightxml_name])[0][0]]
-        df_test = df[['text', 'label', 'dataType']]
+    if classifiers['lightxml']:
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'LightXML', 'src'))
+        from dataset import MDataset
+        from model import LightXML
 
-        for index in range(len(berts)):
-            model_name = '_'.join([lightxml_name, berts[index]])
-            # model_name = '_'.join([i for i in model_name if i != ''])
-            print(f'LightXML/models/model-{model_name}.bin')
+        berts = ['camembert', 'xlm-roberta', 'mbert']
 
-            try:
-                with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'rb') as in_f:
-                    single_predictions = pickle.load(in_f)
-            except FileNotFoundError:
-                model = LightXML(n_labels=len(label_dict), bert=berts[index])
-                model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin'), strict=False)
-                tokenizer = model.get_tokenizer()
+        for lightxml_name in classifiers['lightxml']:
+            df['text'] = df['_'.join(get_datatype([lightxml_name])[0])]
+            df_test = df[['text', 'label', 'dataType']]
+            for index in range(len(berts)):
+                model_name = '_'.join([lightxml_name, berts[index]])
+                print(f'LightXML/models/model-{model_name}.bin')
 
-                test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
+                try:
+                    with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'rb') as in_f:
+                        single_predictions = pickle.load(in_f)
+                except FileNotFoundError:
+                    model = LightXML(n_labels=len(label_dict), bert=berts[index])
+                    model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin'), strict=False)
+                    tokenizer = model.get_tokenizer()
 
-                if args.pred_level <= 4:
-                    testloader = DataLoader(test_d, batch_size=16, num_workers=0,
-                                    shuffle=False)
-                elif args.pred_level > 4:
-                    testloader = DataLoader(test_d, batch_size=4, num_workers=0,
-                                    shuffle=False)    
+                    test_d = MDataset(df_test, 'test', tokenizer, label_map, 512)
 
-                torch.cuda.empty_cache()
-                model.cuda() 
-                single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0]) # torch.Size([#data, #labels])
-            
-                # save predictions
-                with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'wb') as out_f:
-                    pickle.dump(single_predictions, out_f)
+                    if args.pred_level <= 4:
+                        testloader = DataLoader(test_d, batch_size=16, num_workers=0,
+                                        shuffle=False)
+                    elif args.pred_level > 4:
+                        testloader = DataLoader(test_d, batch_size=4, num_workers=0,
+                                        shuffle=False)    
 
-            predicts.append(single_predictions) 
+                    torch.cuda.empty_cache()
+                    model.cuda() 
+                    single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0]) # torch.Size([#data, #labels])
+                
+                    # save predictions
+                    with open(f'LightXML/predictions/{model_name}_ensemble.pkl', 'wb') as out_f:
+                        pickle.dump(single_predictions, out_f)
 
-        # for high on low prediction
+                predicts.append(single_predictions) 
+
+            # for high on low prediction
 
     ######################### AttentionXML ###############################
-    model_names = classifiers['attentionxml']
-    trees = 3
-    prefix = [f'AttentionXML/results/FastAttentionXML-{mn}' for mn in model_names]
-    
-    for p in prefix:
-        attentionxml_predictions = torch.zeros(len(df), len(labels))
-        labels_att, scores_att = [], []
-        for i in range(trees):
-            labels_att.append(np.load(F'{p}-Tree-{i}-labels.npy', allow_pickle=True))   # 9 * 25943 * 100
-            scores_att.append(np.load(F'{p}-Tree-{i}-scores.npy', allow_pickle=True))
-        for i in range(len(labels_att[0])):
-            s = defaultdict(float)
-            for j in range(len(labels_att[0][i])):
-                for k in range(len(labels_att)):
-                    s[labels_att[k][i][j]] += scores_att[k][i][j]  
+    if classifiers['attentionxml']:
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'AttentionXML'))
+        from deepxml.evaluation import *
+        from deepxml.data_utils import get_data
+        from ruamel.yaml import YAML
+        from deepxml.tree import FastAttentionXML
 
-            # pad to complete vector (to adapt to LightXML predictions)
-            for s_k, s_v in s.items():
-                attentionxml_predictions[i, int(s_k)] = s_v 
-        predicts.append(attentionxml_predictions)
+        yaml = YAML(typ='safe')
+        nb_trees = 3
+        for attentionxml_name in classifiers['attentionxml']:
+            df['text'] = df['_'.join(get_datatype([attentionxml_name])[0])]
+            data_cnf, model_cnf = yaml.load(Path(f"./AttentionXML/configure/datasets/{attentionxml_name}.yaml")), yaml.load(Path(f"AttentionXML/configure/models/FastAttentionXML-{attentionxml_name}.yaml"))
+
+            try:
+                test_x, _ = get_data(f"tmp_{attentionxml_name}/test_texts.npy", None)
+            except:
+                os.makedirs(f"tmp_{attentionxml_name}", exist_ok=True)
+                with open(f"tmp_{attentionxml_name}/test_raw_texts.txt", "w") as outf:
+                    outf.write("\n".join(df['text'].tolist()))
+                os.system(f"python ./AttentionXML/preprocess.py --text-path ./tmp_{attentionxml_name}/test_raw_texts.txt --tokenized-path ./tmp_{attentionxml_name}/test_texts.txt --vocab-path ./AttentionXML/data/{attentionxml_name}/vocab.npy")
+                test_x, _ = get_data(f"tmp_{attentionxml_name}/test_texts.npy", None)
+
+            attentionxml_predictions = torch.zeros(len(df), len(labels))
+            labels_att, scores_att = [], []
+            for tree_id in range(nb_trees):
+                tree_id = F'-Tree-{tree_id}' if tree_id is not None else ''
+                model = FastAttentionXML(len(labels), data_cnf, model_cnf, tree_id)
+                scores, labels = model.predict(test_x)
+                labels_att.append(labels)   # 9 * 25943 * 100
+                scores_att.append(scores)
+
+            for i in range(len(labels_att[0])):
+                s = defaultdict(float)
+                for j in range(len(labels_att[0][i])):
+                    for k in range(len(labels_att)):
+                        s[labels_att[k][i][j]] += scores_att[k][i][j]  
+
+                # pad to complete vector (to adapt to LightXML predictions)
+                for s_k, s_v in s.items():
+                    attentionxml_predictions[i, int(s_k)] = s_v 
+            predicts.append(attentionxml_predictions)
     ######################################################################
 
     total = len(df)
