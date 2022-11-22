@@ -24,7 +24,7 @@ def load_group(dataset, group_tree=0):
     return np.load(f'./data/{dataset}/label_group{group_tree}.npy', allow_pickle=True)
 
 def train(model, df, label_map):
-    tokenizer = model.get_tokenizer()
+    tokenizer = model.get_fast_tokenizer()
 
     if args.group_y_group > 0:
         group_y = load_group(args.dataset, args.group_y_group)
@@ -40,7 +40,7 @@ def train(model, df, label_map):
                                  shuffle=True)
         testloader = DataLoader(test_d, batch_size=args.batch, num_workers=5,
                                 shuffle=False)
-        if args.valid:
+        if (args.valid or len(testloader) == 0):
             valid_d = MDataset(df, 'valid', tokenizer, label_map, args.max_len, group_y=group_y,
                                candidates_num=args.group_y_candidate_num)
             validloader = DataLoader(valid_d, batch_size=args.batch, num_workers=0, 
@@ -53,6 +53,11 @@ def train(model, df, label_map):
                                 shuffle=True)
         testloader = DataLoader(test_d, batch_size=args.batch, num_workers=1,
                                 shuffle=False)
+        
+        if (args.valid or len(testloader) == 0):
+            valid_d = MDataset(df, 'valid', tokenizer, label_map, args.max_len)
+            validloader = DataLoader(valid_d, batch_size=args.batch, num_workers=1, 
+                                     shuffle=False)
     model.cuda()
 
     no_decay = ['bias', 'LayerNorm.weight']
@@ -69,11 +74,11 @@ def train(model, df, label_map):
     if args.fix_nb_epochs:
         max_nb_epochs = max_nb_epochs - 5
     for epoch in range(0, max_nb_epochs):
-        train_loss, running_loss = model.one_epoch(epoch, trainloader, optimizer, mode='train',
-                                     eval_loader=validloader if args.valid else testloader,
+        train_loss = model.one_epoch(epoch, trainloader, optimizer, mode='train',
+                                     eval_loader=validloader if (args.valid or len(testloader) == 0) else testloader,
                                      eval_step=args.eval_step, log=LOG)
 
-        if args.valid:
+        if (args.valid or len(testloader) == 0):
             ev_result = model.one_epoch(epoch, validloader, optimizer, mode='eval')
         else:
             ev_result = model.one_epoch(epoch, testloader, optimizer, mode='eval')
@@ -83,21 +88,13 @@ def train(model, df, label_map):
         log_str = f'{epoch:>2}: {p1:.4f}, {p3:.4f}, {p5:.4f}, train_loss:{train_loss}'
         if args.group_y_group > 0:
             log_str += f' {g_p1:.4f}, {g_p3:.4f}, {g_p5:.4f}'
-        if args.valid:
+        if (args.valid or len(testloader) == 0):
             log_str += ' valid'
         LOG.log(log_str)
 
-        # save loss for each batch
-        running_loss = np.array(running_loss)
-        np.save(f'loss/{get_exp_name()}-{str(epoch)}.npy', running_loss)
-        
-
-        if len(testloader) == 0:
+        if max_only_p5 < p5:
+            max_only_p5 = p5
             model.save_model(f'models/model-{get_exp_name()}.bin')
-        else:
-            if max_only_p5 < p5:
-                max_only_p5 = p5
-                model.save_model(f'models/model-{get_exp_name()}.bin')
 
         if epoch >= max_nb_epochs and max_only_p5 != p5:
             break
@@ -145,7 +142,7 @@ parser.add_argument('--eval_model', action='store_true')
 # added by zy
 parser.add_argument('--checkpoint', type=str, required=False, default=None, help='Name of the previous saved checkpoint. (will continue to train on this checkpoint)')
 parser.add_argument('--fix_nb_epochs', action='store_true', help='Whether to fix the number of epochs (without +5).')
-parser.add_argument('--label_file', type=str, required=False, default='../../data/ipc-sections/20210101/labels_group_id_6.tsv')
+parser.add_argument('--label_file', type=str, required=False, default='../../data/ipc-sections/20220101/labels_group_id_6.tsv')
 parser.add_argument('--mode_amp', type=str, required=False, default='O1', help='Mode of mixed precision.')
 
 args = parser.parse_args()
@@ -169,15 +166,15 @@ if __name__ == '__main__':
     for i, label in enumerate(labels):
         label_map[str(i)] = i
 
-    if args.valid:
+    print(f'load {args.dataset} dataset with '
+          f'{len(df[df.dataType =="train"])} train {len(df[df.dataType =="test"])} test with {len(label_map)} labels done')
+    
+    if (args.valid or len(df[df.dataType =="test"]) == 0):
         train_df, valid_df = train_test_split(df[df['dataType'] == 'train'],
                                               test_size=4000,
                                               random_state=1240)
         df.iloc[valid_df.index.values, 2] = 'valid'
         print('valid size', len(df[df['dataType'] == 'valid']))
-
-    print(f'load {args.dataset} dataset with '
-          f'{len(df[df.dataType =="train"])} train {len(df[df.dataType =="test"])} test with {len(label_map)} labels done')
 
     if args.group_y_group > 0:
         group_y = load_group(args.dataset, args.group_y_group)

@@ -110,7 +110,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--in_file", default='../../data/INPI/new_extraction/output/inpi_new_final.csv', type=str, help="Path to input directory.")
     parser.add_argument("--in_dir", type=str, help = "Input directory (especially for EPO dataset)")
-
     parser.add_argument("--label_file", required=False, type=str, help="path to the label file")
     parser.add_argument("--pred_level", required=True, type=int, choices={1, 3, 4, 6, 8}, help="Target IPC/CPC level of patent classification.")
     parser.add_argument("--target_section", 
@@ -118,7 +117,6 @@ def main():
                         choices={"title","abstract","description","claims"}, 
                         action = "append",
                         help="Target section(s) to be used to train the model.")
-
     parser.add_argument("--split_by_year", default=2020, type=int, help="The year used to split data. (<split_by_year as training and >=split_by_year as testing data).")
 
     args = parser.parse_args()  
@@ -197,8 +195,8 @@ def main():
     label_map = dict(zip(labels, range(0, len(labels))))
 
     # remove "\n" in the texts
-    df_train['text'] = df_train['text'].apply(lambda x: str(x).replace("\n", " ").replace("   ", " "))
-    df_test['text'] = df_test['text'].apply(lambda x: str(x).replace("\n", " ").replace("   ", " "))
+    df_train['text'] = df_train['text'].apply(lambda x: str(x).replace("\n", " ").replace("  ", " "))
+    df_test['text'] = df_test['text'].apply(lambda x: str(x).replace("\n", " ").replace("  ", " "))
 
     ### transform labels into numbers
     # remove labels that do not exist in label file

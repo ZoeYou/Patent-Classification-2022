@@ -29,14 +29,14 @@ def build_tree_by_level(sparse_data_x, sparse_data_y, mlb, eps: float, max_leaf:
     levels, q = [2**x for x in levels], None
     for i in range(len(levels)-1, -1, -1):
         if os.path.exists(F'{groups_path}-Level-{i}.npy'):
-            labels_list = np.load(F'{groups_path}-Level-{i}.npy')
+            labels_list = np.load(F'{groups_path}-Level-{i}.npy',allow_pickle=True)
             q = [(labels_i, labels_f[labels_i]) for labels_i in labels_list]
             break
     if q is None:
         q = [(np.arange(labels_f.shape[0]), labels_f)]
     while q:
         labels_list = np.asarray([x[0] for x in q]) 
-        assert sum(len(labels) for labels in labels_list) == labels_f.shape[0]
+        # assert sum(len(labels) for labels in labels_list) == labels_f.shape[0]
         if len(labels_list) in levels:
             logger.info(F'{len(labels_list)} is taken and levels are: {levels}')
             level = levels.index(len(labels_list))

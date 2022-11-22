@@ -23,8 +23,8 @@ class Network(nn.Module):
                  **kwargs):
         super(Network, self).__init__()
         self.emb = Embedding(vocab_size, emb_size, emb_init, emb_trainable, padding_idx, emb_dropout)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.emb = self.emb.to(device)
+        #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #self.emb = self.emb.to(device)
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -41,8 +41,8 @@ class AttentionRNN(Network):
         self.linear = MLLinear([hidden_size * 2] + linear_size, 1)
 
     def forward(self, inputs, **kwargs):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")#To resolve prob
-        inputs = inputs.to(device)#To resolve pro
+        #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")#To resolve prob
+        #inputs = inputs.to(device)#To resolve pro
         
         emb_out, lengths, masks = self.emb(inputs, **kwargs)
         rnn_out = self.lstm(emb_out, lengths)   # N, L, hidden_size * 2

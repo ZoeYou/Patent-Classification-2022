@@ -26,7 +26,7 @@ def tokenize(sentence: str, sep='/SEP/', lang = "french"):
 @click.command()
 @click.option('--text-path', type=click.Path(exists=True), help='Path of text.')
 @click.option('--tokenized-path', type=click.Path(), default=None, help='Path of tokenized text.')
-@click.option('--label-path', type=click.Path(exists=True), default=None, help='Path of labels.')
+@click.option('--label-path', type=click.Path(), default=None, help='Path of labels.')
 @click.option('--vocab-path', type=click.Path(), default=None,
               help='Path of vocab, if it doesn\'t exit, build one and save it.')
 @click.option('--emb-path', type=click.Path(), default=None, help='Path of word embedding.')
@@ -57,6 +57,7 @@ def main(text_path, tokenized_path, label_path, vocab_path, emb_path, w2v_model,
 
     logger.info(F'Getting Dataset: {text_path} Max Length: {max_len}')
     texts, labels = convert_to_binary(text_path, label_path, max_len, vocab)
+
     logger.info(F'Size of Samples: {len(texts)}')
     np.save(os.path.splitext(text_path)[0], texts)
     if labels is not None:

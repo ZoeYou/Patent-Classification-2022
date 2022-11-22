@@ -92,8 +92,9 @@ class AttentionWeights(nn.Module):
     def __init__(self, labels_num, hidden_size, device_ids=None):
         super(AttentionWeights, self).__init__()
         if device_ids is None:
-            device_ids = list(range(1, torch.cuda.device_count()))
+            device_ids = list(range(0, torch.cuda.device_count()))
         assert labels_num >= len(device_ids)
+
         group_size, plus_num = labels_num // len(device_ids), labels_num % len(device_ids)
         self.group = [group_size + 1] * plus_num + [group_size] * (len(device_ids) - plus_num)
         assert sum(self.group) == labels_num

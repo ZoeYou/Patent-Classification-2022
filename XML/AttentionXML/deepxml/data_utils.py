@@ -65,7 +65,7 @@ def convert_to_binary(text_file, label_file=None, max_len=None, vocab=None, pad=
 
 
 def truncate_text(texts, max_len=500, padding_idx=0, unknown_idx=1):
-    if max_len is None:
+    if max_len is None or (len(texts)==0):
         return texts
     texts = np.asarray([list(x[:max_len]) + [padding_idx] * (max_len - len(x)) for x in texts])
     texts[(texts == padding_idx).all(axis=1), 0] = unknown_idx

@@ -21,6 +21,7 @@ from deepxml.models import Model
 from deepxml.tree import FastAttentionXML
 from deepxml.networks import AttentionRNN
 
+import torch
 
 @click.command()
 @click.option('-d', '--data-cnf', type=click.Path(exists=True), help='Path of dataset configure yaml.')
@@ -61,6 +62,7 @@ def main(data_cnf, model_cnf, mode, tree_id):
         logger.info(F'Size of Validation Set: {len(valid_x)}')
 
         logger.info('Training')
+        torch.cuda.empty_cache()
         if 'cluster' not in model_cnf:
             train_loader = DataLoader(MultiLabelDataset(train_x, train_y),
                                       model_cnf['train']['batch_size'], shuffle=True, num_workers=4)
@@ -81,22 +83,24 @@ def main(data_cnf, model_cnf, mode, tree_id):
         test_x, _ = get_data(data_cnf['test']['texts'], None)
         logger.info(F'Size of Test Set: {len(test_x)}')
 
-        logger.info('Predicting')
-        if 'cluster' not in model_cnf:
-            test_loader = DataLoader(MultiLabelDataset(test_x), model_cnf['predict']['batch_size'],
-                                     num_workers=4)
-            if model is None:
-                model = Model(network=AttentionRNN, labels_num=labels_num, model_path=model_path, emb_init=emb_init,
-                              **data_cnf['model'], **model_cnf['model'])
-            scores, labels = model.predict(test_loader, k=model_cnf['predict'].get('k', K))
-        else:
-            if model is None:
-                model = FastAttentionXML(labels_num, data_cnf, model_cnf, tree_id)
-            scores, labels = model.predict(test_x)
-        logger.info('Finish Predicting')
-    
-        labels = mlb.classes_[labels]
-        output_res(data_cnf['output']['res'], F'{model_name}-{data_name}{tree_id}', scores, labels)
+        if test_x.size > 0:
+            logger.info('Predicting')
+            torch.cuda.empty_cache()
+            if 'cluster' not in model_cnf:
+                test_loader = DataLoader(MultiLabelDataset(test_x), model_cnf['predict']['batch_size'],
+                                        num_workers=4)
+                if model is None:
+                    model = Model(network=AttentionRNN, labels_num=labels_num, model_path=model_path, emb_init=emb_init,
+                                **data_cnf['model'], **model_cnf['model'])
+                scores, labels = model.predict(test_loader, k=model_cnf['predict'].get('k', 100))
+            else:
+                if model is None:
+                    model = FastAttentionXML(labels_num, data_cnf, model_cnf, tree_id)
+                scores, labels = model.predict(test_x)
+            logger.info('Finish Predicting')
+        
+            labels = mlb.classes_[labels]
+            output_res(data_cnf['output']['res'], F'{model_name}-{data_name}{tree_id}', scores, labels)
 
 if __name__ == '__main__':
     main()

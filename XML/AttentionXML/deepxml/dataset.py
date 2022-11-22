@@ -54,7 +54,7 @@ class XMLDataset(MultiLabelDataset):
         self.groups, self.group_labels, self.group_scores = groups, group_labels, group_scores
         if self.candidates is None:
             logger.info(F'shape of self.groups {self.groups.shape}')
-            logger.info(F'group_labels{group_labels}')
+            # logger.info(F'group_labels{group_labels}')
             self.candidates = [np.concatenate([self.groups[g] for g in group_labels])
                                for group_labels in tqdm(self.group_labels, leave=False, desc='Candidates')]
             if self.group_scores is not None:

@@ -1,8 +1,12 @@
+# the same script as model.py
+# used for ensemble learning with other classifiers
+# configurations for gpu removed
+
 import tqdm
 import time
 import cProfile
 import numpy as np
-from apex import amp
+###from apex import amp
 
 import torch
 from torch import nn
@@ -158,8 +162,8 @@ class LightXML(nn.Module):
                                 new_labels[-1][j] = 1.0
                                 break
                 bs = be
-            labels = torch.stack(new_labels).cuda()
-        candidates, group_candidates_scores =  torch.LongTensor(candidates).cuda(), torch.Tensor(group_candidates_scores).cuda()
+            labels = torch.stack(new_labels).cpu()
+        candidates, group_candidates_scores =  torch.LongTensor(candidates).cpu(), torch.Tensor(group_candidates_scores).cpu()
 
         emb = self.l1(out)
         embed_weights = self.embed(candidates) # N, sampled_size, H
@@ -200,7 +204,7 @@ class LightXML(nn.Module):
             return
         for n, p in self.named_parameters():
             self.swa_state[n], p.data =  self.swa_state[n].cpu(), p.data.cpu()
-            self.swa_state[n], p.data =  p.data.cpu(), self.swa_state[n].cuda()
+            self.swa_state[n], p.data =  p.data.cpu(), self.swa_state[n].cpu()
 
     def get_fast_tokenizer(self):
         if 'xlm-roberta-large' in self.bert_name:
@@ -299,14 +303,14 @@ class LightXML(nn.Module):
             for step, data in enumerate(dataloader):
                 batch = tuple(t for t in data)
                 have_group = len(batch) > 4
-                inputs = {'input_ids':      batch[0].cuda(),
-                          'attention_mask': batch[1].cuda(),
-                          'token_type_ids': batch[2].cuda()}
+                inputs = {'input_ids':      batch[0].cpu(),
+                          'attention_mask': batch[1].cpu(),
+                          'token_type_ids': batch[2].cpu()}
                 if mode == 'train':
-                    inputs['labels'] = batch[3].cuda()
+                    inputs['labels'] = batch[3].cpu()
                     if self.group_y is not None:
-                        inputs['group_labels'] = batch[4].cuda()
-                        inputs['candidates'] = batch[5].cuda()
+                        inputs['group_labels'] = batch[4].cpu()
+                        inputs['candidates'] = batch[5].cpu()
 
                 outputs = self(**inputs)
 

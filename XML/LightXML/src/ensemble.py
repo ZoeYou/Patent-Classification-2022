@@ -60,10 +60,10 @@ if __name__ == '__main__':
 
     # save this for error analysis
     preds = []
-    nb_trueLabels = 0
+    nb_true_labels = 0
     for index, true_labels in enumerate(df.label.values):
         true_labels = set([label_map[i] for i in true_labels.split()])
-        nb_trueLabels += len(true_labels)
+        nb_true_labels += len(true_labels)
 
         logits = [torch.sigmoid(predicts[i][index]) for i in range(len(berts))] 
         logits.append(sum(logits))
@@ -85,9 +85,9 @@ if __name__ == '__main__':
             p3 = acc3[i] / total / 3
             p5 = acc5[i] / total / 5
 
-            r1 = acc1 / nb_trueLabels
-            r3 = acc3 / nb_trueLabels
-            r5 = acc5 / nb_trueLabels
+            r1 = acc1 / nb_true_labels
+            r3 = acc3 / nb_true_labels
+            r5 = acc5 / nb_true_labels
 
             print(f'{name} P@1:{p1}, P@3:{p3}, P@5:{p5}, R@1:{r1}, R@3:{r3}, R@5:{r5}', file=f)
             print(f'{name} P@1:{p1}, P@3:{p3}, P@5:{p5}, R@1:{r1}, R@3:{r3}, R@5:{r5}')

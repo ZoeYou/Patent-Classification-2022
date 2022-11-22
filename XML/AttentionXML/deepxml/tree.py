@@ -18,7 +18,10 @@ from logzero import logger
 
 from deepxml.data_utils import get_word_emb
 from deepxml.dataset import MultiLabelDataset, XMLDataset
-from deepxml.models import Model, XMLModel
+if torch.cuda.is_available():
+    from deepxml.models import Model, XMLModel
+else:
+    from deepxml.models_ensemble import Model, XMLModel
 from deepxml.cluster import build_tree_by_level
 from deepxml.networks import *
 
@@ -116,12 +119,12 @@ class FastAttentionXML(object):
             if level < self.level - 1:  # for internal layers
                 while not os.path.exists(F'{self.groups_path}-Level-{level}.npy'):
                     time.sleep(30)
-                groups = np.load(F'{self.groups_path}-Level-{level}.npy')
+                groups = np.load(F'{self.groups_path}-Level-{level}.npy', allow_pickle=True)
                 train_y, valid_y = self.get_mapping_y(groups, self.labels_num, train_y, valid_y)
                 labels_num, last_groups = len(groups), self.get_inter_groups(len(groups))
             else:
                 groups, labels_num = None, train_y.shape[1]
-                last_groups = np.load(F'{self.groups_path}-Level-{level-1}.npy')
+                last_groups = np.load(F'{self.groups_path}-Level-{level-1}.npy', allow_pickle=True)
                 
             logger.info(F'self.groups.shape: {last_groups.shape}')
             logger.info(F'group_candidates: {group_candidates}')
@@ -177,7 +180,7 @@ class FastAttentionXML(object):
             return model.predict(test_loader, k=k)
         else:
             if level == self.level - 1:
-                groups = np.load(F'{self.groups_path}-Level-{level-1}.npy')
+                groups = np.load(F'{self.groups_path}-Level-{level-1}.npy', allow_pickle=True)
             else:
                 groups = self.get_inter_groups(labels_num)
             group_scores, group_labels = self.predict_level(level - 1, test_x, self.top, len(groups))
