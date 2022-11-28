@@ -1,43 +1,101 @@
-certifi==2022.9.24
+absl-py==1.3.0
+aiohttp==3.8.3
+aiosignal==1.2.0
+apex @ file:///scratch/yzuo/XML/LightXML/apex
+async-timeout==4.0.2
+attrs==22.1.0
+beautifulsoup4==4.11.1
+boto3==1.24.73
+botocore==1.27.73
+Bottleneck @ file:///opt/conda/conda-bld/bottleneck_1657175564434/work
+cachetools==5.2.0
+certifi @ file:///croot/certifi_1665076670883/work/certifi
+chardet==5.0.0
 charset-normalizer==2.1.1
-Click==7.0
+click==8.1.3
+commonmark @ file:///Users/ktietz/demo/mc3/conda-bld/commonmark_1630649545323/work
+datasets==2.6.1
+dill==0.3.5.1
+fasttext==0.9.2
 filelock==3.8.0
+frozenlist==1.3.1
+fsspec==2022.10.0
 future==0.18.2
-gensim==3.4.0
+gensim==4.2.0
+google-auth==2.13.0
+google-auth-oauthlib==0.4.6
+grpcio==1.50.0
+huggingface-hub==0.10.1
 idna==3.4
 importlib-metadata==5.0.0
-joblib==0.13.2
-logzero==1.5.0
-nltk==3.4
-numpy==1.16.2
+jmespath==1.0.1
+joblib==1.1.0
+lightning-transformers==0.2.3
+lightning-utilities==0.4.0
+logzero==1.7.0
+lxml==4.9.1
+Markdown==3.4.1
+MarkupSafe==2.1.1
+mkl-fft==1.3.1
+mkl-random @ file:///tmp/build/80754af9/mkl_random_1626186064646/work
+mkl-service==2.4.0
+multidict==6.0.2
+multiprocess==0.70.13
+nltk==3.7
+nmslib==2.1.1
+numba==0.55.1
+numexpr @ file:///croot/numexpr_1668713893690/work
+numpy @ file:///croot/numpy_and_numpy_base_1668593735768/work
 nvidia-cublas-cu11==11.10.3.66
 nvidia-cuda-nvrtc-cu11==11.7.99
 nvidia-cuda-runtime-cu11==11.7.99
 nvidia-cudnn-cu11==8.5.0.96
-packaging==21.3
+oauthlib==3.2.2
+packaging @ file:///tmp/build/80754af9/packaging_1637314298585/work
 pandas==1.0.4
-pip==22.2.2
-pyparsing==3.0.9
-python-dateutil==2.8.2
-pytz==2022.6
-regex==2022.10.31
+Pillow==9.3.0
+protobuf==3.19.6
+pyarrow==10.0.0
+pyasn1==0.4.8
+pyasn1-modules==0.2.8
+pyDeprecate==0.3.1
+Pygments @ file:///opt/conda/conda-bld/pygments_1644249106324/work
+pyparsing @ file:///opt/conda/conda-bld/pyparsing_1661452539315/work
+python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
+pytorch-lightning==1.5.10
+pytz==2022.2.1
+PyYAML==6.0
+regex==2022.9.13
 requests==2.28.1
-ruamel.yaml==0.16.5
-ruamel.yaml.clib==0.2.7
+requests-oauthlib==1.3.1
+responses==0.18.0
+rich @ file:///tmp/abs_f016wesp06/croots/recipe/rich_1659708287203/work
+rsa==4.9
+ruamel.yaml @ file:///croot/ruamel.yaml_1666304550667/work
+ruamel.yaml.clib @ file:///croot/ruamel.yaml.clib_1666302247304/work
+s3transfer==0.6.0
 sacremoses==0.0.53
-scikit-learn==0.22.2
-scipy==1.3.1
+scikit-learn==0.23.2
+scipy==1.4.1
 sentencepiece==0.1.97
-setuptools==65.5.0
-singledispatch==3.7.0
-six==1.16.0
+simplet5==0.1.4
+six @ file:///tmp/build/80754af9/six_1644875935023/work
 smart-open==6.2.0
+soupsieve==2.3.2.post1
+tensorboard==2.10.1
+tensorboard-data-server==0.6.1
+tensorboard-plugin-wit==1.8.1
 threadpoolctl==3.1.0
 tokenizers==0.7.0
-torch==1.13.0
-tqdm==4.31.1
+torch==1.12.1
+torchmetrics==0.10.1
+tqdm==4.46.1
 transformers==2.11.0
-typing_extensions==4.4.0
+translate-toolkit==3.7.3
+typing_extensions @ file:///tmp/abs_ben9emwtky/croots/recipe/typing_extensions_1659638822008/work
 urllib3==1.26.12
-wheel==0.37.1
+Werkzeug==2.2.2
+xclib==0.97
+xxhash==3.1.0
+yarl==1.8.1
 zipp==3.10.0
