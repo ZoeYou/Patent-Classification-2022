@@ -89,7 +89,10 @@ class MDataset(Dataset):
     def __getitem__(self, idx):
         max_len = self.max_length
         review = self.df.text.values[idx].lower()
-        labels = [self.label_map[i] for i in self.df.label.values[idx].split() if i in self.label_map]
+        try:
+            labels = [self.label_map[i] for i in self.df.label.values[idx].split() if i in self.label_map]
+        except AttributeError:
+            pass
 
         review = ' '.join(review.split()[:max_len])
 
@@ -174,8 +177,11 @@ class MDataset(Dataset):
                 return input_ids, attention_mask, token_type_ids, layers_group_labels + [labels]
 
         label_ids = torch.zeros(self.n_labels)
-        label_ids = label_ids.scatter(0, torch.tensor(labels),
-                                      torch.tensor([1.0 for i in labels]))
+        try:
+            label_ids = label_ids.scatter(0, torch.tensor(labels),
+                                        torch.tensor([1.0 for i in labels]))
+        except UnboundLocalError:
+            pass
         return input_ids, attention_mask, token_type_ids, label_ids
     
     def __len__(self):

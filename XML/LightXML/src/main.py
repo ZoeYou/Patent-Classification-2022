@@ -56,7 +56,7 @@ def train(model, df, label_map):
         
         if (args.valid or len(testloader) == 0):
             valid_d = MDataset(df, 'valid', tokenizer, label_map, args.max_len)
-            validloader = DataLoader(valid_d, batch_size=args.batch, num_workers=1, 
+            validloader = DataLoader(valid_d, batch_size=args.batch, num_workers=0, 
                                      shuffle=False)
     model.cuda()
 

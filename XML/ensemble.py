@@ -99,7 +99,10 @@ if __name__ == '__main__':
     if classifiers['lightxml']:
         sys.path.append(os.path.join(os.path.dirname(__file__), 'LightXML', 'src'))
         from dataset import MDataset
-        from model_ensemble import LightXML 
+        if torch.cuda.is_available():
+            from model import LightXML
+        else:
+            from model_ensemble import LightXML
 
         for lightxml_name in classifiers['lightxml']:
             df['text'] = df['_'.join(get_datatype([lightxml_name])[0])]
@@ -110,7 +113,6 @@ if __name__ == '__main__':
                 model_name = '_'.join([lightxml_name, berts[index]])
                 logger.info(f'LightXML/models/model-{model_name}.bin')
                 model = LightXML(n_labels=len(label_dict), bert=berts[index])
-
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                     model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin'), strict=False)

@@ -29,19 +29,13 @@ class Embedding(nn.Module):
             vocab_size, emb_size = emb_init.shape
         self.emb = nn.Embedding(vocab_size, emb_size, padding_idx=padding_idx, sparse=True,
                                 _weight=torch.from_numpy(emb_init).float() if emb_init is not None else None)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.emb = self.emb.to(device)
+
         self.emb.weight.requires_grad = emb_trainable
         self.dropout = nn.Dropout(dropout)
         self.padding_idx = padding_idx
 
     def forward(self, inputs):
-        inputs = inputs.type(torch.LongTensor) #To delete if there is  prob
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")#To resolve prob
-        inputs = inputs.to(device)#To resolve pro
-        
         emb_out = self.dropout(self.emb(inputs))
-        
         lengths, masks = (inputs != self.padding_idx).sum(dim=-1), inputs != self.padding_idx
         return emb_out[:, :lengths.max()], lengths, masks[:, :lengths.max()]
 
@@ -61,8 +55,7 @@ class LSTMEncoder(nn.Module):
         init_state = self.init_state.repeat([1, inputs.size(0), 1])
         cell_init, hidden_init = init_state[:init_state.size(0)//2], init_state[init_state.size(0)//2:]
         idx = torch.argsort(lengths, descending=True)
-
-        packed_inputs = nn.utils.rnn.pack_padded_sequence(inputs[idx], lengths[idx], batch_first=True)
+        packed_inputs = nn.utils.rnn.pack_padded_sequence(inputs[idx], lengths[idx].cpu(), batch_first=True)
         outputs, _ = nn.utils.rnn.pad_packed_sequence(
             self.lstm(packed_inputs, (hidden_init, cell_init))[0], batch_first=True)
         return self.dropout(outputs[torch.argsort(idx)])
@@ -98,8 +91,12 @@ class AttentionWeights(nn.Module):
         group_size, plus_num = labels_num // len(device_ids), labels_num % len(device_ids)
         self.group = [group_size + 1] * plus_num + [group_size] * (len(device_ids) - plus_num)
         assert sum(self.group) == labels_num
-        self.emb = nn.ModuleList(nn.Embedding(size, hidden_size, sparse=True).cuda(device_ids[i])
-                                 for i, size in enumerate(self.group))
+        if torch.cuda.is_available():
+            self.emb = nn.ModuleList(nn.Embedding(size, hidden_size, sparse=True).cuda(device_ids[i])
+                                    for i, size in enumerate(self.group))
+        else:
+            self.emb = nn.ModuleList(nn.Embedding(size, hidden_size, sparse=True).cpu()
+                                    for i, size in enumerate(self.group))            
         std = (6.0 / (labels_num + hidden_size)) ** 0.5
         with torch.no_grad():
             for emb in self.emb:
