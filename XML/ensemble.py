@@ -65,7 +65,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--in_file', default='./sample_data_for_ensemble/test.csv', type=str, help="Path to input dataset. (format of the file should be a csv with four columns: title, abs, claims, desc if mode==predict; title, abs, claims, desc and true labels if mode==eval)")
 parser.add_argument('--pred_level', type=int, required=False, default=6, help="Level of IPC prediction. {4: subclass, 6: group, 8: subgroup}")
 parser.add_argument('--mode', type=str, default='predict', choices=["predict", "eval"], help="the performance results of the models will be evaluated and saved if in evaluation mode.")
-parser.add_argument('--weighted_average', action='store_true', help='Whether to use Precision@1 to ensemble the weighted average of single classifiers.')
+
+parser.add_argument('--weighted_average', action='store_true', help='Whether to use weighted average (weighted defined by the next param) to ensemble every single classifier.')
+parser.add_argument('--weighted_metric', default="R@1", help='Metric used for weighted average.')
 
 parser.add_argument('--lightxml', type=str, required=False, action='append')
 parser.add_argument('--attentionxml', type=str, required=False, action='append')
@@ -86,7 +88,7 @@ if __name__ == '__main__':
 
     # load test data of INPI with all sections (abstract, description, claims)
     df = pd.read_csv(args.in_file, dtype=str, engine="python")
-    df = dataframe_preprocess(df)[:100]
+    df = dataframe_preprocess(df)[:500]
     logger.info(f"number of data: {len(df)}")
 
     predicts = []
@@ -102,7 +104,7 @@ if __name__ == '__main__':
         for lightxml_name in classifiers['lightxml']:
             df['text'] = df['_'.join(get_datatype([lightxml_name])[0])]
             if args.mode == 'eval': df_test = df[['text', 'label', 'dataType']]
-            else: df_test = df[['text', 'dataType']]
+            if args.mode == 'predict': df_test = df[['text', 'dataType']]
 
             for index in range(len(berts)):
                 model_name = '_'.join([lightxml_name, berts[index]])
@@ -137,23 +139,26 @@ if __name__ == '__main__':
         from deepxml.data_utils import get_data, get_mlb
         from ruamel.yaml import YAML
         from deepxml.tree import FastAttentionXML
+        import shutil
 
         yaml = YAML(typ='safe')
         nb_trees = 1
         for attentionxml_name in classifiers['attentionxml']:
             attentionxml_predictions = torch.zeros(len(df), len(label_map))
             df['text'] = df['_'.join(get_datatype([attentionxml_name])[0])]
-            df_test = df[['text', 'label']]
+            if args.mode == "eval": df_test = df[['text', 'label']]
+            if args.mode == 'predict': df_test = df[['text']]
+
             data_cnf, model_cnf = yaml.load(Path(f"./AttentionXML/configure/datasets/{attentionxml_name}.yaml")), yaml.load(Path(f"AttentionXML/configure/models/FastAttentionXML-{attentionxml_name}.yaml"))
             mlb = get_mlb(data_cnf['labels_binarizer'], [list(label_map.keys())])
 
             try:
-                test_x, _ = get_data(f"tmp_{attentionxml_name}/test_texts.npy", None)
+                test_x, _ = get_data(f"./tmp_{attentionxml_name}/test_texts.npy", None)
             except:
-                os.makedirs(f"tmp_{attentionxml_name}", exist_ok=True)
-                df_test['text'].to_csv(f"tmp_{attentionxml_name}/test_raw_texts.txt", index=False, header=False)
+                os.makedirs(f"./tmp_{attentionxml_name}", exist_ok=True)
+                df_test['text'].to_csv(f"./tmp_{attentionxml_name}/test_raw_texts.txt", index=False, header=False)
                 os.system(f"python ./AttentionXML/preprocess.py --text-path ./tmp_{attentionxml_name}/test_raw_texts.txt --tokenized-path ./tmp_{attentionxml_name}/test_texts.txt --vocab-path ./AttentionXML/data/{attentionxml_name}/vocab.npy")
-                test_x, _ = get_data(f"tmp_{attentionxml_name}/test_texts.npy", None)
+                test_x, _ = get_data(f"./tmp_{attentionxml_name}/test_texts.npy", None)
             logger.info(F'Size of Test Set: {len(test_x)}')
 
             labels_att, scores_att = [], []
@@ -175,6 +180,8 @@ if __name__ == '__main__':
                     attentionxml_predictions[i, int(s_k)] = s_v
 
             predicts.append(attentionxml_predictions)
+            # delete temporary files
+            shutil.rmtree(f"./tmp_{attentionxml_name}")
     ######################################################################
     total = len(df)
     preds = []
@@ -229,41 +236,29 @@ if __name__ == '__main__':
         eval_res.to_csv(f'./results/INPI_{str(args.pred_level)}_ensemble.eval', index=False)
 
     elif args.mode=='predict':
-
         if args.weighted_average:
-            p1s = torch.zeros(len(berts) * len(classifiers['lightxml']) + len(classifiers['attentionxml']), 1)
+            metric = args.weighted_metric
+            weights = torch.zeros(len(berts) * len(classifiers['lightxml']) + len(classifiers['attentionxml']), 1)
 
-            classifier_names = [(classifiers['lightxml'][i//3], "lightxml") for i in range(3*len(classifiers['lightxml']))] + \
-                [(classifiers['attentionxml'][i], "attentionxml") for i in range(len(classifiers['attentionxml']))]
+            classifier_names = [(classifiers['lightxml'][i//3], "lightxml", berts[i]) for i in range(3*len(classifiers['lightxml']))] + \
+                [(classifiers['attentionxml'][i], "attentionxml", "attentionxml") for i in range(len(classifiers['attentionxml']))]
+            
             eval_res = pd.read_csv(f'./results/INPI_{str(args.pred_level)}_ensemble.eval')
-            for dataname, classifier_name in classifier_names:
-                
+            for i, (dataname, classifier_name, model_name) in enumerate(classifier_names):
+                weights[i] = eval_res.loc[(eval_res['dataname']==dataname) & (eval_res['classifier_name']==classifier_name) & (eval_res['model_name']==model_name)][metric].values[0]
 
+            # scale weights with exponential function
+            weights = np.exp(weights)
+  
         for index in range(len(df)):
-            logits = [torch.sigmoid(predicts[i][index]) for i in range(len(predicts))] 
-            logits.append(sum(logits)) 
-            logits = [(-i).argsort()[:100].cpu().numpy() for i in logits]   
-            for i, logit in enumerate(logits):
-                logit_code = [str(logit[k]) for k in range(len(logit))] 
-            preds.append([label_decode_dict[e] for e in logit[:10]])     
-
-
-
-            # for cls in classifier_names:
-
-    # #     ### scale precision@1 weights with exponential function
-    # #     #p1s = np.exp(p1s)
-    # #     ### sigmoid function
-    # #     p1s = 1/(1 + np.exp(-p1s))
-
-
-            for index in range(len(df)):
-                logits = [torch.sigmoid(predicts[i][index]) for i in range(len(predicts))]  # (nb_classifiers * nb_labels)
-                logits = torch.stack(logits)
-                logits = torch.squeeze(sum(p1s * logits))
-                logit_code = [str(code) for code in logits.argsort(descending=True)[:100].cpu().numpy()]
-
-
+            logits = [torch.sigmoid(predicts[i][index]) for i in range(len(predicts))]
+            logits = torch.stack(logits)
+            if args.weighted_average:
+                logits = torch.squeeze(sum(weights * logits))   
+            else:
+                logits = torch.squeeze(sum(logits))
+            logit_code = logits.argsort(descending=True)[:100].cpu().numpy()
+            preds.append([label_decode_dict[e] for e in logit_code[:10]])     
 
     with open(f'./results/INPI_{str(args.pred_level)}_ensemble_pred.txt', 'w') as out_f:
         lines = [str(l) for l in preds]
