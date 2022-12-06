@@ -61,6 +61,27 @@ def softmax(vector):
     e = np.exp(vector)
     return e / e.sum()
 
+def reverse_label_map(label_map):
+    inv_map = {}
+    for k,v in label_map.items():
+        inv_map[v] = k
+    return inv_map
+
+def convert_high_on_low(high_predictions, high_label_map, low_label_map):   
+    if args.pred_level == 4:
+        reverse_mapping = {h_v: low_label_map[h_k[:4]] for h_k, h_v in high_label_map.items()}
+    elif args.pred_level == 6:
+        reverse_mapping = {h_v: low_label_map[h_k.split('/')[0]] for h_k, h_v in high_label_map.items()}
+
+    mapping = defaultdict(list) # low => high codes
+    for k, v in reverse_mapping.items():
+        mapping[v].append(k)
+
+    ret = torch.zeros(len(low_label_map))
+    for j in range(ret.shape[0]):   # (nb_labels on low level)     
+        ret[j] = sum([high_predictions[k] for k in mapping[j]])
+    return ret
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--in_file', default='./sample_data_for_ensemble/test.csv', type=str, help="Path to input dataset. (format of the file should be a csv with four columns: title, abs, claims, desc if mode==predict; title, abs, claims, desc and true labels if mode==eval)")
 parser.add_argument('--pred_level', type=int, required=False, default=6, help="Level of IPC prediction. {4: subclass, 6: group, 8: subgroup}")
@@ -88,7 +109,7 @@ if __name__ == '__main__':
 
     # load test data of INPI with all sections (abstract, description, claims)
     df = pd.read_csv(args.in_file, dtype=str, engine="python")
-    df = dataframe_preprocess(df)[:500]
+    df = dataframe_preprocess(df)[:100]
     logger.info(f"number of data: {len(df)}")
 
     predicts = []
@@ -132,7 +153,47 @@ if __name__ == '__main__':
                 single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0]) # torch.Size([#data, #labels])
                 predicts.append(single_predictions) 
 
-            # for high on low prediction
+    # for high on low prediction
+    if classifiers['lightxml_highOnLow']:
+        assert args.pred_level < 8
+
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'LightXML', 'src'))
+        from dataset import MDataset
+        if torch.cuda.is_available():
+            from model import LightXML
+        else:
+            from model_ensemble import LightXML
+        high_labels = [l.split("\t")[0] for l in open(f"../data/ipc-sections/20220101/labels_group_id_{str(args.pred_level+2)}.tsv", "r").read().splitlines()[1:]]
+        high_label_dict = dict(zip(high_labels, range(len(high_labels))))
+        high_label_map = {str(i):i for i,_ in enumerate(high_labels)}
+
+        for lightxml_highOnLow_name in classifiers['lightxml_highOnLow']:
+            df['text'] = df['_'.join(get_datatype([lightxml_highOnLow_name])[0])]
+            if args.mode == 'eval': df_test = df[['text', 'label', 'dataType']]
+            if args.mode == 'predict': df_test = df[['text', 'dataType']]
+
+            for index in range(len(berts)):
+                model_name = '_'.join([lightxml_highOnLow_name, berts[index]])
+                logger.info(f'LightXML/models/model-{model_name}.bin')
+                model = LightXML(n_labels=len(high_labels), bert=berts[index])
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin'), strict=False)
+                    model.cuda() 
+                else:
+                    model.load_state_dict(torch.load(f'LightXML/models/model-{model_name}.bin', map_location='cpu'), strict=False)
+
+                tokenizer = model.get_tokenizer()
+                test_d = MDataset(df_test, 'test', tokenizer, high_label_map, 512)
+
+                if args.pred_level <= 4:
+                    testloader = DataLoader(test_d, batch_size=16, num_workers=2,
+                                    shuffle=False)
+                elif args.pred_level > 4:
+                    testloader = DataLoader(test_d, batch_size=4, num_workers=1,
+                                    shuffle=False)    
+                single_predictions = torch.Tensor(model.one_epoch(0, testloader, None, mode='test')[0]) # torch.Size([#data, #labels])
+                predicts.append(single_predictions) 
 
     ######################### AttentionXML ###############################
     if classifiers['attentionxml']:
@@ -201,23 +262,30 @@ if __name__ == '__main__':
             except AttributeError:
                 continue
 
-            logits = [torch.sigmoid(predicts[i][index]) for i in range(len(predicts))] 
+            logits = []
+            for i in range(len(predicts)):
+                logit_to_append = torch.sigmoid(predicts[i][index])
+                if len(predicts[i][index]) > len(label_map) and classifiers['lightxml_highOnLow']:   
+                    logit_to_append = convert_high_on_low(logit_to_append, high_label_dict, label_dict)
+                logits.append(logit_to_append)
             logits.append(sum(logits)) 
             logits = [(-i).argsort()[:100].cpu().numpy() for i in logits]
 
-            for i, logit in enumerate(logits):
+            for i, logit in enumerate(logits):                
                 logit_code = [str(logit[k]) for k in range(len(logit))] 
                 acc1[i] += len(set([logit_code[0]]) & true_labels)
                 acc3[i] += len(set(logit_code[:3]) & true_labels)
                 acc5[i] += len(set(logit_code[:5]) & true_labels)
+
             preds.append([label_decode_dict[e] for e in logit[:10]])
 
         eval_res = pd.DataFrame(columns = ['dataname', 'classifier_name', 'model_name', 'P@1', 'P@3', 'P@5', 'R@1', 'R@3', 'R@5'])
         classifier_names = [(classifiers['lightxml'][i//3], "lightxml") for i in range(3*len(classifiers['lightxml']))] + \
+            [(classifiers['lightxml_highOnLow'][i//3], "lightxml_highOnLow") for i in range(3*len(classifiers['lightxml_highOnLow']))] + \
             [(classifiers['attentionxml'][i], "attentionxml") for i in range(len(classifiers['attentionxml']))] + \
             [("all", "all")]
         
-        for i, name in enumerate(berts * len(classifiers['lightxml']) + ['attentionxml'] * len(classifiers['attentionxml']) + ['all']):
+        for i, name in enumerate(berts * (len(classifiers['lightxml'])+len(classifiers['lightxml_highOnLow'])) + ['attentionxml'] * len(classifiers['attentionxml']) + ['all']):
             p1 = acc1[i] / total
             p3 = acc3[i] / total / 3
             p5 = acc5[i] / total / 5
@@ -226,7 +294,7 @@ if __name__ == '__main__':
             r5 = acc5[i] / nb_true_labels
 
             logger.info(f'{classifier_names[i]}\t{name}\tP@1:{p1}, P@3:{p3}, P@5:{p5}, R@1:{r1}, R@3:{r3}, R@5:{r5}')
-            eval_res = eval_res.append({'dataname': classifier_names[i][0], 
+            eval_res = pd.concat([eval_res, pd.DataFrame({'dataname': classifier_names[i][0], 
                             'classifier_name': classifier_names[i][1],
                             'model_name': name,
                             'P@1': p1,
@@ -234,15 +302,16 @@ if __name__ == '__main__':
                             'P@5': p5,
                             'R@1': r1,
                             'R@3': r3,
-                            'R@5': r5}, ignore_index = True)
+                            'R@5': r5}, index=[0])], ignore_index = True)
         eval_res.to_csv(f'./results/INPI_{str(args.pred_level)}_ensemble.eval', index=False)
 
     elif args.mode=='predict':
         if args.weighted_average:
             metric = args.weighted_metric
-            weights = torch.zeros(len(berts) * len(classifiers['lightxml']) + len(classifiers['attentionxml']), 1)
+            weights = torch.zeros(len(berts) * (len(classifiers['lightxml'])+len(classifiers['lightxml_highOnLow'])) + len(classifiers['attentionxml']), 1)
 
             classifier_names = [(classifiers['lightxml'][i//3], "lightxml", berts[i]) for i in range(3*len(classifiers['lightxml']))] + \
+                [(classifiers['lightxml_highOnLow'][i//3], "lightxml_highOnLow") for i in range(3*len(classifiers['lightxml_highOnLow']))] + \
                 [(classifiers['attentionxml'][i], "attentionxml", "attentionxml") for i in range(len(classifiers['attentionxml']))]
             
             eval_res = pd.read_csv(f'./results/INPI_{str(args.pred_level)}_ensemble.eval')
@@ -253,7 +322,12 @@ if __name__ == '__main__':
             weights = np.exp(weights)
   
         for index in range(len(df)):
-            logits = [torch.sigmoid(predicts[i][index]) for i in range(len(predicts))]
+            logits = []
+            for i in range(len(predicts)):
+                logit_to_append = torch.sigmoid(predicts[i][index])
+                if len(predicts[i][index]) > len(label_map) and classifiers['lightxml_highOnLow']:   
+                    logit_to_append = convert_high_on_low(logit_to_append, high_label_dict, label_dict)
+                logits.append(logit_to_append)
             logits = torch.stack(logits)
             if args.weighted_average:
                 logits = torch.squeeze(sum(weights * logits))   
