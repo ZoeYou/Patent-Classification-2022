@@ -247,7 +247,10 @@ def main():
                     text = ' /SEP/ '.join([v.strip() for k, v in zip(keys, vals) if k in target_sections])
 
                 if len(text) > 10:
-                    res_dict['text'] = ' '.join(text.split(' ')[:args.max_text_length])
+                    if max_text_length != -1:
+                        res_dict['text'] = ' '.join(text.split(' ')[:args.max_text_length])
+                    else:
+                        res_dict['text'] = text
                 else:
                     continue
                 res_dict['id'] = str(pat_file).split('_')[-3].strip()
