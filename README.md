@@ -7,7 +7,7 @@ We present a French Patents corpus, named  INPI-CLS, with IPC labels at all leve
 
 The dataset is available in the following link: [https://drive.google.com/drive/folders/1aY1bLSpUshDbyzcUTTaCIs9bpErBdu8k?usp=sharing](https://drive.google.com/drive/folders/1aY1bLSpUshDbyzcUTTaCIs9bpErBdu8k?usp=sharing). Once you have obtained the data, unzip it and place it under the directory of `/data`.
 
-Or you can download the dataset from huggingface: [https://huggingface.co/datasets/ZuoYou233/INPI-CLS](https://huggingface.co/datasets/ZuoYou233/INPI-CLS).
+Or you can download the dataset from huggingface: [https://huggingface.co/datasets/ZoeYou/INPI-CLS](https://huggingface.co/datasets/ZoeYou/INPI-CLS).
 
 
 To create dataset for models *AttentionXML* and *LightXML*, you have to run the code as follows:
